@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\PreRegistration;
 use App\Models\Application;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class PreRegistrationController extends Controller
 {
+    use LogsAudit;
     /**
      * List pre-registrations with filters
      */
@@ -130,6 +132,16 @@ class PreRegistrationController extends Controller
             $message = 'Application rejected';
         }
 
+        $applicantData = $preReg->applicant_data;
+        $applicantName = ($applicantData['first_name'] ?? '') . ' ' . ($applicantData['last_name'] ?? '');
+        $actionKey = in_array($request->action, ['verify', 'transmit']) ? 'prereg_fo_verified' : 'prereg_fo_rejected';
+        $this->logAudit(
+            $actionKey, 'pre_registrations', $preReg->id,
+            ($actionKey === 'prereg_fo_verified' ? 'FO verified' : 'FO rejected') . ": {$applicantName} ({$preReg->reference_number})",
+            null, ['status' => $preReg->status],
+            trim($applicantName)
+        );
+
         return response()->json([
             'message' => $message,
             'data' => $preReg->fresh(['barangay', 'foReviewer']),
@@ -172,6 +184,16 @@ class PreRegistrationController extends Controller
             ]);
             $message = 'Application rejected';
         }
+
+        $applicantData = $preReg->applicant_data;
+        $applicantName = ($applicantData['first_name'] ?? '') . ' ' . ($applicantData['last_name'] ?? '');
+        $actionKey = $request->action === 'approve' ? 'prereg_approved' : 'prereg_rejected';
+        $this->logAudit(
+            $actionKey, 'pre_registrations', $preReg->id,
+            ($request->action === 'approve' ? 'Application approved' : 'Application rejected') . ": {$applicantName} ({$preReg->reference_number})",
+            null, ['status' => $preReg->status],
+            trim($applicantName)
+        );
 
         return response()->json([
             'message' => $message,

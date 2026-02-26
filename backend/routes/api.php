@@ -237,6 +237,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/{id}', [\App\Http\Controllers\Api\BenefitController::class, 'destroyBenefitType']);
             Route::patch('/{id}/toggle', [\App\Http\Controllers\Api\BenefitController::class, 'toggleBenefitType']);
         });
+        // Audit Log
+        Route::prefix('admin/audit-logs')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\AuditLogController::class, 'index']);
+            Route::get('/stats', [\App\Http\Controllers\Api\AuditLogController::class, 'stats']);
+            Route::get('/{id}', [\App\Http\Controllers\Api\AuditLogController::class, 'show']);
+        });
     });
 
     // Main Admin and Branch Admin routes (role_id = 1 or 2)

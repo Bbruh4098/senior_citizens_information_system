@@ -381,4 +381,13 @@ export const benefitComplaintsApi = {
   respond: (id, data) => api.patch(`/benefits/complaints/${id}/respond`, data),
 };
 
+// Audit Log API
+export const auditLogApi = {
+  getList: (params) => api.get('/admin/audit-logs', { params }),
+
+  getById: (id) => api.get(`/admin/audit-logs/${id}`),
+
+  getStats: () => api.get('/admin/audit-logs/stats'),
+};
+
 export default api;

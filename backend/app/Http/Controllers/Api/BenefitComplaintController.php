@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BenefitComplaint;
 use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class BenefitComplaintController extends Controller
 {
+    use LogsAudit;
 
     // File a new complaint (senior portal).
     public function seniorStore(Request $request): JsonResponse
@@ -207,6 +209,19 @@ class BenefitComplaintController extends Controller
         }
 
         $complaint->save();
+        $complaint->load('senior');
+
+        $seniorName = $complaint->senior
+            ? "{$complaint->senior->first_name} {$complaint->senior->last_name}"
+            : 'Unknown';
+        $actionKey = 'complaint_' . $validated['status'];
+        $this->logAudit(
+            $actionKey, 'benefit_complaints', $complaint->id,
+            "Complaint " . str_replace('_', ' ', $validated['status']) . ": {$complaint->subject}",
+            null,
+            ['status' => $validated['status']],
+            $seniorName
+        );
 
         return response()->json([
             'success' => true,

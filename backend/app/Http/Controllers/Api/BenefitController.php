@@ -6,15 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\BenefitClaim;
 use App\Models\BenefitType;
 use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class BenefitController extends Controller
 {
-    /**
-     * Get all benefit types.
-     */
+    use LogsAudit;
+    // Get all benefit types.
     public function types()
     {
         $types = BenefitType::active()
@@ -40,9 +40,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Get paginated list of benefit claims.
-     */
+    // Get paginated list of benefit claims.
     public function index(Request $request)
     {
         $user = $request->user();
@@ -93,9 +91,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Export benefit claims as CSV.
-     */
+    // Export benefit claims as CSV.
     public function exportClaims(Request $request)
     {
         $user = $request->user();
@@ -154,9 +150,7 @@ class BenefitController extends Controller
             ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
     }
 
-    /**
-     * Get seniors eligible for benefits they haven't claimed yet.
-     */
+    // Get seniors eligible for benefits they haven't claimed yet.
     public function eligible(Request $request)
     {
         $user = $request->user();
@@ -258,9 +252,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Export eligible seniors as CSV.
-     */
+    // Export eligible seniors as CSV.
     public function exportEligible(Request $request)
     {
         $user = $request->user();
@@ -353,9 +345,7 @@ class BenefitController extends Controller
             ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
     }
 
-    /**
-     * Get dashboard statistics for benefits.
-     */
+    // Get dashboard statistics for benefits.
     public function statistics(Request $request)
     {
         $user = $request->user();
@@ -405,9 +395,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Create a new benefit claim.
-     */
+    // Create a new benefit claim.
     public function store(Request $request)
     {
         $request->validate([
@@ -471,6 +459,15 @@ class BenefitController extends Controller
 
         $claim->load(['senior', 'benefitType']);
 
+        $seniorName = "{$senior->first_name} {$senior->last_name}";
+        $this->logAudit(
+            'benefit_claim', 'benefit_claims', $claim->id,
+            "Benefit claimed: {$benefitType->name} for {$seniorName} (₱" . number_format($claim->amount, 2) . ")",
+            null,
+            ['benefit_type' => $benefitType->name, 'amount' => $claim->amount, 'senior_id' => $senior->id, 'claim_year' => $currentYear],
+            $seniorName
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Benefit claim created successfully.',
@@ -513,9 +510,20 @@ class BenefitController extends Controller
         $claim->save();
         $claim->load(['senior', 'benefitType', 'processor']);
 
+        $seniorName = "{$claim->senior->first_name} {$claim->senior->last_name}";
+        $statusLabel = ucfirst($request->status);
+        $actionKey = 'claim_' . $request->status;
+        $this->logAudit(
+            $actionKey, 'benefit_claims', $claim->id,
+            "Claim {$statusLabel}: {$claim->benefitType->name} for {$seniorName}",
+            ['status' => 'pending'],
+            ['status' => $request->status],
+            $seniorName
+        );
+
         return response()->json([
             'success' => true,
-            'message' => 'Claim status updated to ' . ucfirst($request->status),
+            'message' => 'Claim status updated to ' . $statusLabel,
             'data' => $claim,
         ]);
     }

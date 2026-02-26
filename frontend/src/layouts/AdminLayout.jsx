@@ -18,6 +18,7 @@ import {
     MenuOutlined,
     GiftOutlined,
     CloseOutlined,
+    AuditOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -130,6 +131,7 @@ const AdminLayout = () => {
             children: [
                 { key: '/admin/accounts', label: 'Accounts' },
                 { key: '/admin/settings/branches', label: 'Field Offices and Barangays' },
+                { key: '/admin/audit-log', icon: <AuditOutlined />, label: 'Audit Log' },
             ],
         }] : []),
     ];

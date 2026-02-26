@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Barangay;
 use App\Models\District;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
 class BranchManagementController extends Controller
 {
+    use LogsAudit;
     // ==========================================
     // BRANCHES (Field Offices) CRUD
     // ==========================================
@@ -77,6 +79,12 @@ class BranchManagementController extends Controller
         ]);
 
         $branch = Branch::create($validated);
+
+        $this->logAudit(
+            'branch_create', 'branches', $branch->id,
+            "Field Office created: {$branch->name} ({$branch->code})",
+            null, $validated, $branch->name
+        );
 
         return response()->json([
             'success' => true,
@@ -154,6 +162,12 @@ class BranchManagementController extends Controller
                 'error' => 'Cannot delete Field Office with assigned admin users'
             ], 400);
         }
+
+        $this->logAudit(
+            'branch_delete', 'branches', $branch->id,
+            "Field Office deleted: {$branch->name}",
+            null, null, $branch->name
+        );
 
         $branch->delete();
 
@@ -369,6 +383,13 @@ class BranchManagementController extends Controller
         $barangay = Barangay::find($validated['barangay_id']);
         $branch = Branch::find($validated['branch_id']);
 
+        $this->logAudit(
+            'barangay_assign', 'barangays', $barangay->id,
+            "Barangay {$barangay->name} assigned to {$branch->name}",
+            null, ['branch_id' => $branch->id],
+            $barangay->name
+        );
+
         return response()->json([
             'success' => true,
             'message' => "Barangay {$barangay->name} assigned to {$branch->name}",
@@ -434,6 +455,14 @@ class BranchManagementController extends Controller
         }
 
         DB::table('branch_barangays')->insert($inserts);
+
+        $branch = Branch::find($branchId);
+        $this->logAudit(
+            'barangay_bulk_assign', 'branches', $branchId,
+            count($barangayIds) . " barangays assigned to {$branch->name}",
+            null, ['barangay_count' => count($barangayIds)],
+            $branch->name
+        );
 
         return response()->json([
             'success' => true,

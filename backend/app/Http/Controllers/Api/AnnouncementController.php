@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\AnnouncementMedia;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
 {
+    use LogsAudit;
     /**
      * Get paginated list of announcements.
      */
@@ -95,6 +97,14 @@ class AnnouncementController extends Controller
             'created_by' => $user->id,
         ]);
 
+        $this->logAudit(
+            'announcement_create', 'announcements', $announcement->id,
+            "Announcement created: {$announcement->title}",
+            null,
+            ['title' => $announcement->title, 'is_published' => $announcement->is_published],
+            $announcement->title
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Announcement created successfully',
@@ -148,7 +158,22 @@ class AnnouncementController extends Controller
             }
         }
 
+        // Detect publish action
+        if (isset($updateData['is_published']) && $updateData['is_published'] && !$announcement->getOriginal('is_published')) {
+            $actionKey = 'announcement_publish';
+            $desc = "Announcement published: {$announcement->title}";
+        } else {
+            $actionKey = 'announcement_update';
+            $desc = "Announcement updated: {$announcement->title}";
+        }
+
         $announcement->update($updateData);
+
+        $this->logAudit(
+            $actionKey, 'announcements', $announcement->id,
+            $desc, null, null,
+            $announcement->title
+        );
 
         return response()->json([
             'success' => true,
@@ -163,6 +188,14 @@ class AnnouncementController extends Controller
     public function destroy($id)
     {
         $announcement = Announcement::findOrFail($id);
+
+        $this->logAudit(
+            'announcement_delete', 'announcements', $announcement->id,
+            "Announcement deleted: {$announcement->title}",
+            null, null,
+            $announcement->title
+        );
+
         $announcement->delete();
 
         return response()->json([

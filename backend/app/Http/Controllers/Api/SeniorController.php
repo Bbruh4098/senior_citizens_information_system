@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SeniorController extends Controller
 {
+    use LogsAudit;
     /**
      * Get paginated list of seniors.
      */
@@ -318,16 +320,41 @@ class SeniorController extends Controller
 
             // Log audit entry
             if (!empty($changes)) {
-                DB::table('audit_logs')->insert([
-                    'user_id' => $user->id,
-                    'action' => 'senior_update',
-                    'target_type' => 'senior_citizens',
-                    'target_id' => $senior->id,
-                    'old_values' => json_encode($oldValues),
-                    'new_values' => json_encode($newValues),
-                    'ip_address' => $request->ip(),
-                    'created_at' => now(),
-                ]);
+                $seniorName = "{$senior->first_name} {$senior->last_name}";
+
+                // Determine specific action based on what changed
+                if (in_array('is_deceased', $changes) && $senior->is_deceased) {
+                    $action = 'senior_mark_deceased';
+                    $desc = "Marked as deceased: {$seniorName}";
+                } elseif (in_array('is_active', $changes) && !$senior->is_active) {
+                    $action = 'senior_deactivated';
+                    $desc = "Deactivated senior: {$seniorName}";
+                } elseif (in_array('is_active', $changes) && $senior->is_active) {
+                    $action = 'senior_activated';
+                    $desc = "Activated senior: {$seniorName}";
+                } elseif (in_array('barangay_id', $changes)) {
+                    $action = 'senior_transfer';
+                    $desc = "Transferred senior: {$seniorName} — barangay changed";
+                } elseif (array_intersect(['first_name', 'middle_name', 'last_name', 'extension'], $changes)) {
+                    $action = 'senior_name_change';
+                    $desc = "Name updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } elseif (array_intersect(['birthdate', 'gender_id', 'civil_status_id', 'birthplace'], $changes)) {
+                    $action = 'senior_personal_info';
+                    $desc = "Personal info updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } elseif (array_intersect(['house_number', 'street', 'purok'], $changes)) {
+                    $action = 'senior_address_update';
+                    $desc = "Address updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } else {
+                    $action = 'senior_update';
+                    $desc = "Updated senior: {$seniorName} — changed: " . implode(', ', $changes);
+                }
+
+                $this->logAudit(
+                    $action, 'senior_citizens', $senior->id,
+                    $desc,
+                    $oldValues, $newValues,
+                    $seniorName
+                );
             }
 
             DB::commit();
