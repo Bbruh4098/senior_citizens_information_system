@@ -8,7 +8,7 @@ class EducationalAttainment extends Model
 {
     protected $table = 'educational_attainment';
 
-    protected $fillable = ['level'];
+    protected $fillable = ['level', 'is_enabled', 'sort_order'];
 
     public $timestamps = false;
 }

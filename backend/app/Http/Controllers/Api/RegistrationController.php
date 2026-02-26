@@ -21,16 +21,22 @@ class RegistrationController extends Controller
      */
     public function lookupOptions()
     {
-        // Get genders (exclude "Other" as per original form)
-        $genders = Gender::whereNotIn('name', ['Other'])->get(['id', 'name']);
+        // Get genders 
+        $genders = Gender::where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
+            ->get(['id', 'name']);
         
-        // Get educational attainments - note: uses 'level' column
+        // Get educational attainments
         $educationalAttainments = DB::table('educational_attainment')
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
             ->select('id', 'level as name')
             ->get();
         
-        // Get mobility levels - note: uses 'level' column  
+        // Get mobility levels
         $mobilityLevels = DB::table('mobility_levels')
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
             ->select('id', 'level as name')
             ->get();
         
@@ -39,8 +45,10 @@ class RegistrationController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
-        // Get civil statuses from database
-        $civilStatuses = \App\Models\CivilStatus::all(['id', 'name']);
+        // Get civil statuses
+        $civilStatuses = \App\Models\CivilStatus::where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
+            ->get(['id', 'name']);
 
         $options = [
             'genders' => $genders,

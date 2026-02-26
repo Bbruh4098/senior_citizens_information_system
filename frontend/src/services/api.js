@@ -390,4 +390,19 @@ export const auditLogApi = {
   getStats: () => api.get('/admin/audit-logs/stats'),
 };
 
+// Dropdown / Lookup Management API
+export const dropdownApi = {
+  getTypes: () => api.get('/admin/dropdowns/types'),
+
+  getAll: (type) => api.get(`/admin/dropdowns/${type}`),
+
+  create: (type, data) => api.post(`/admin/dropdowns/${type}`, data),
+
+  update: (type, id, data) => api.put(`/admin/dropdowns/${type}/${id}`, data),
+
+  toggleEnabled: (type, id) => api.patch(`/admin/dropdowns/${type}/${id}/toggle`),
+
+  reorder: (type, order) => api.post(`/admin/dropdowns/${type}/reorder`, { order }),
+};
+
 export default api;

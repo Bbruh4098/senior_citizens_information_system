@@ -124,6 +124,10 @@ class AuditLog extends Model
             'prereg_fo_rejected'    => 'Pre-Reg FO Rejected',
             'prereg_approved'       => 'Pre-Reg Approved',
             'prereg_rejected'       => 'Pre-Reg Rejected',
+            'dropdown_create'       => 'Dropdown Option Created',
+            'dropdown_update'       => 'Dropdown Option Updated',
+            'dropdown_enabled'      => 'Dropdown Option Enabled',
+            'dropdown_disabled'     => 'Dropdown Option Disabled',
         ];
 
         return $labels[$this->action] ?? ucwords(str_replace('_', ' ', $this->action));

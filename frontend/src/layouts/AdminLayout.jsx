@@ -19,6 +19,8 @@ import {
     GiftOutlined,
     CloseOutlined,
     AuditOutlined,
+    DatabaseOutlined,
+    BankOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -129,8 +131,9 @@ const AdminLayout = () => {
             icon: <SettingOutlined />,
             label: 'Settings',
             children: [
-                { key: '/admin/accounts', label: 'Accounts' },
-                { key: '/admin/settings/branches', label: 'Field Offices and Barangays' },
+                { key: '/admin/accounts', icon: <UserOutlined />, label: 'Accounts' },
+                { key: '/admin/settings/branches', icon: <BankOutlined />, label: 'Field Offices and Barangays' },
+                { key: '/admin/settings/data-management', icon: <DatabaseOutlined />, label: 'Data Management' },
                 { key: '/admin/audit-log', icon: <AuditOutlined />, label: 'Audit Log' },
             ],
         }] : []),

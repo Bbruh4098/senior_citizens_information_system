@@ -8,7 +8,7 @@ class CivilStatus extends Model
 {
     protected $table = 'civil_statuses';
     
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'is_enabled', 'sort_order'];
 
     public $timestamps = false;
 

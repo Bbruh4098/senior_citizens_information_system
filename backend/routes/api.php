@@ -243,6 +243,16 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/stats', [\App\Http\Controllers\Api\AuditLogController::class, 'stats']);
             Route::get('/{id}', [\App\Http\Controllers\Api\AuditLogController::class, 'show']);
         });
+
+        // Dropdown / Lookup Management
+        Route::get('admin/dropdowns/types', [\App\Http\Controllers\Api\DropdownController::class, 'types']);
+        Route::prefix('admin/dropdowns/{type}')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\DropdownController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\DropdownController::class, 'store']);
+            Route::put('/{id}', [\App\Http\Controllers\Api\DropdownController::class, 'update']);
+            Route::patch('/{id}/toggle', [\App\Http\Controllers\Api\DropdownController::class, 'toggleEnabled']);
+            Route::post('/reorder', [\App\Http\Controllers\Api\DropdownController::class, 'reorder']);
+        });
     });
 
     // Main Admin and Branch Admin routes (role_id = 1 or 2)
