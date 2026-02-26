@@ -222,8 +222,10 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
     };
 
     const renderFamily = () => {
+        const dbMembers = senior?.family_members || [];
         const appData = getApplicantData();
-        const familyMembers = appData?.family_members || [];
+        const appMembers = appData?.family_members || [];
+        const familyMembers = dbMembers.length > 0 ? dbMembers : appMembers;
 
         return (
             <Card size="small" title="Family Composition" style={{ marginTop: 16 }}>
@@ -233,10 +235,13 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                         rowKey={(_, index) => index}
                         size="small"
                         pagination={false}
+                        scroll={{ x: 900 }}
                         columns={[
                             {
                                 title: 'Name',
                                 key: 'name',
+                                fixed: 'left',
+                                width: 180,
                                 render: (_, record) => {
                                     const parts = [
                                         record.first_name,
@@ -251,20 +256,52 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                                 title: 'Relationship',
                                 dataIndex: 'relationship',
                                 key: 'relationship',
+                                width: 110,
                                 render: (val) => val || '-',
                             },
                             {
+                                title: 'Date of Birth',
+                                dataIndex: 'birthdate',
+                                key: 'birthdate',
+                                width: 120,
+                                render: (val) => val ? dayjs(val).format('MMM D, YYYY') : '-',
+                            },
+                            {
                                 title: 'Age',
-                                dataIndex: 'age',
                                 key: 'age',
                                 width: 60,
-                                render: (val) => val || '-',
+                                render: (_, record) => {
+                                    if (record.birthdate) return dayjs().diff(dayjs(record.birthdate), 'year');
+                                    return record.age || record.computed_age || '-';
+                                },
                             },
                             {
                                 title: 'Monthly Salary',
                                 dataIndex: 'monthly_salary',
                                 key: 'monthly_salary',
+                                width: 120,
                                 render: (val) => val ? `₱${Number(val).toLocaleString()}` : '-',
+                            },
+                            {
+                                title: 'Mobile',
+                                dataIndex: 'mobile_number',
+                                key: 'mobile_number',
+                                width: 130,
+                                render: (val) => val || '-',
+                            },
+                            {
+                                title: 'Telephone',
+                                dataIndex: 'telephone_number',
+                                key: 'telephone_number',
+                                width: 130,
+                                render: (val) => val || '-',
+                            },
+                            {
+                                title: 'Email',
+                                dataIndex: 'email',
+                                key: 'email',
+                                width: 180,
+                                render: (val) => val || '-',
                             },
                         ]}
                     />

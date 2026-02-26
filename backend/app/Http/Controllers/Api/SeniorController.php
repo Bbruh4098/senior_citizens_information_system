@@ -120,6 +120,7 @@ class SeniorController extends Controller
                 'registeredBy',
                 'applications.applicationType',
                 'seniorIds',
+                'familyMembers',
             ])
                 ->accessibleBy($user)
                 ->findOrFail($id);
