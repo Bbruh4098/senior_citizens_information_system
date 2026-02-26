@@ -108,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/lookup-options', [RegistrationController::class, 'lookupOptions']);
         Route::get('/barangays', [RegistrationController::class, 'barangays']);
         Route::post('/check-duplicate', [RegistrationController::class, 'checkDuplicate']);
+        Route::get('/search-family-senior', [RegistrationController::class, 'searchFamilySenior']);
         Route::post('/new', [RegistrationController::class, 'store']);
         Route::get('/{id}', [RegistrationController::class, 'show']);
         Route::put('/{id}', [RegistrationController::class, 'update']);

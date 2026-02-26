@@ -607,4 +607,49 @@ class RegistrationController extends Controller
             'data' => $documents,
         ]);
     }
+
+    /*
+      Search for registered seniors to add as family members.
+      Returns basic info (name, birthdate, age) for auto-fill.
+     */
+    public function searchFamilySenior(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string|min:2',
+        ]);
+
+        $query = trim($request->query('query'));
+
+        $seniors = SeniorCitizen::where(function ($q) use ($query) {
+                $q->where('first_name', 'like', "%{$query}%")
+                  ->orWhere('last_name', 'like', "%{$query}%")
+                  ->orWhere('osca_id', 'like', "%{$query}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$query}%"]);
+            })
+            ->where('is_active', true)
+            ->where('is_deceased', false)
+            ->with('barangay')
+            ->limit(10)
+            ->get();
+
+        $results = $seniors->map(function ($senior) {
+            return [
+                'id' => $senior->id,
+                'osca_id' => $senior->osca_id,
+                'first_name' => $senior->first_name,
+                'middle_name' => $senior->middle_name,
+                'last_name' => $senior->last_name,
+                'extension' => $senior->extension,
+                'full_name' => $senior->full_name,
+                'birthdate' => $senior->birthdate?->format('Y-m-d'),
+                'age' => $senior->age,
+                'barangay' => $senior->barangay?->name,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $results,
+        ]);
+    }
 }

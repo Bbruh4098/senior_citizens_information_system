@@ -147,6 +147,9 @@ export const registrationApi = {
 
   deleteDocument: (documentId) =>
     api.delete(`/registration/document/${documentId}`),
+
+  searchFamilySenior: (query) =>
+    api.get("/registration/search-family-senior", { params: { query } }),
 };
 
 // Renewal API (Renew ID)

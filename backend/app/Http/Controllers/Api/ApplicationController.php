@@ -332,15 +332,27 @@ class ApplicationController extends Controller
         if (!empty($familyMembers)) {
             foreach ($familyMembers as $member) {
                 if (!empty($member['first_name'])) {
+                    $birthdate = $member['birthdate'] ?? null;
+                    $age = $member['age'] ?? null;
+                    
+                    // Auto-compute age from birthdate if available
+                    if ($birthdate) {
+                        $age = \Carbon\Carbon::parse($birthdate)->age;
+                    }
+
                     DB::table('family_members')->insert([
                         'senior_id' => $senior->id,
                         'first_name' => $member['first_name'] ?? '',
                         'middle_name' => $member['middle_name'] ?? null,
                         'last_name' => $member['last_name'] ?? '',
                         'extension' => $member['extension'] ?? null,
+                        'birthdate' => $birthdate,
                         'relationship' => $member['relationship'] ?? null,
-                        'age' => $member['age'] ?? null,
+                        'age' => $age,
                         'monthly_salary' => $member['monthly_salary'] ?? null,
+                        'mobile_number' => $member['mobile_number'] ?? null,
+                        'telephone_number' => $member['telephone_number'] ?? null,
+                        'email' => $member['email'] ?? null,
                         'created_at' => now(),
                     ]);
                 }

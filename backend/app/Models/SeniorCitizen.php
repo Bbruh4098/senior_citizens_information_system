@@ -162,6 +162,11 @@ class SeniorCitizen extends Model
         return $this->hasMany(Complaint::class, 'complainant_id');
     }
 
+    public function familyMembers()
+    {
+        return $this->hasMany(FamilyMember::class, 'senior_id');
+    }
+
     // Scopes
     public function scopeActive($query)
     {

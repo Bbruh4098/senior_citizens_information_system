@@ -141,7 +141,7 @@ const Apply = () => {
     const addFamilyMember = () => {
         setFamilyMembers([
             ...familyMembers,
-            { id: Date.now(), first_name: '', middle_name: '', last_name: '', extension: '', relationship: '', age: '', monthly_salary: '' },
+            { id: Date.now(), first_name: '', middle_name: '', last_name: '', extension: '', birthdate: null, relationship: '', age: '', monthly_salary: '', mobile_number: '', telephone_number: '', email: '' },
         ]);
     };
 
@@ -150,8 +150,18 @@ const Apply = () => {
     };
 
     const updateFamilyMember = (id, field, value) => {
-        setFamilyMembers(
-            familyMembers.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+        setFamilyMembers(prev =>
+            prev.map((m) => {
+                if (m.id !== id) return m;
+                const updated = { ...m, [field]: value };
+                // Auto-calculate age when birthdate changes
+                if (field === 'birthdate' && value) {
+                    updated.age = dayjs().diff(dayjs(value), 'year');
+                } else if (field === 'birthdate' && !value) {
+                    updated.age = '';
+                }
+                return updated;
+            })
         );
     };
 
@@ -703,7 +713,7 @@ const Apply = () => {
                                             title={`Family Member ${index + 1}`}
                                         >
                                             <Row gutter={12}>
-                                                <Col xs={24} sm={8}>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item
                                                         label={<span>First Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                         style={{ marginBottom: 8 }}
@@ -715,7 +725,7 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={8}>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item label="Middle Name" style={{ marginBottom: 8 }}>
                                                         <Input
                                                             value={member.middle_name}
@@ -724,7 +734,7 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={8}>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item
                                                         label={<span>Last Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                         style={{ marginBottom: 8 }}
@@ -736,9 +746,7 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                            </Row>
-                                            <Row gutter={12}>
-                                                <Col xs={24} sm={6}>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item label="Extension" style={{ marginBottom: 8 }}>
                                                         <Input
                                                             value={member.extension}
@@ -747,7 +755,9 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={6}>
+                                            </Row>
+                                            <Row gutter={12}>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item
                                                         label={<span>Relationship <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                         style={{ marginBottom: 8 }}
@@ -782,18 +792,29 @@ const Apply = () => {
                                                         )}
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={6}>
-                                                    <Form.Item label="Age" style={{ marginBottom: 8 }}>
-                                                        <InputNumber
-                                                            value={member.age}
-                                                            onChange={(value) => updateFamilyMember(member.id, 'age', value)}
-                                                            placeholder="Age"
-                                                            min={0}
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Date of Birth" style={{ marginBottom: 8 }}>
+                                                        <DatePicker
+                                                            value={member.birthdate ? dayjs(member.birthdate) : null}
+                                                            onChange={(date) => updateFamilyMember(member.id, 'birthdate', date ? date.format('YYYY-MM-DD') : null)}
                                                             style={{ width: '100%' }}
+                                                            placeholder="YYYY-MM-DD"
+                                                            format={['YYYY-MM-DD', 'MM/DD/YYYY']}
+                                                            allowClear
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={6}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Age" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.age !== '' && member.age !== null ? `${member.age}` : ''}
+                                                            readOnly
+                                                            placeholder="From birthdate"
+                                                            style={{ backgroundColor: '#f5f5f5' }}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
                                                     <Form.Item label="Monthly Salary" style={{ marginBottom: 8 }}>
                                                         <InputNumber
                                                             value={member.monthly_salary}
@@ -801,6 +822,35 @@ const Apply = () => {
                                                             placeholder="0.00"
                                                             min={0}
                                                             style={{ width: '100%' }}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                            <Row gutter={12}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Mobile Number" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.mobile_number}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'mobile_number', e.target.value)}
+                                                            placeholder="09XXXXXXXXX"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Telephone Number" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.telephone_number}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'telephone_number', e.target.value)}
+                                                            placeholder="(062) XXX-XXXX"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Email" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.email}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'email', e.target.value)}
+                                                            placeholder="email@example.com"
                                                         />
                                                     </Form.Item>
                                                 </Col>
