@@ -23,11 +23,9 @@ class ArchiveController extends Controller
         // Base query
         $query = Archive::query()->with('archivedBy');
 
-        // Default to senior citizens unless explicitly requesting another type
+        // Filter by a specific archive type if requested
         if ($type = $request->get('archive_type')) {
             $query->where('archive_type', $type);
-        } else {
-            $query->where('archive_type', 'senior_citizen');
         }
 
         // Enforce access control: Barangay admins cannot view archives
@@ -43,13 +41,19 @@ class ArchiveController extends Controller
             $barangayIds = $user->getAccessibleBarangayIds();
             if (!empty($barangayIds)) {
                 $placeholders = implode(',', array_fill(0, count($barangayIds), '?'));
-                $query->whereRaw(
-                    "JSON_EXTRACT(archive_data, '$.barangay_id') IN ($placeholders)",
-                    $barangayIds
-                );
+                // This condition now correctly handles multiple archive types.
+                // It restricts senior_citizen archives to the admin's barangays,
+                // while still allowing access to other types like 'user' archives.
+                $query->where(function ($q) use ($placeholders, $barangayIds) {
+                    $q->where('archive_type', '!=', 'senior_citizen')
+                        ->orWhereRaw(
+                            "JSON_EXTRACT(archive_data, '$.barangay_id') IN ($placeholders)",
+                            $barangayIds
+                        );
+                });
             } else {
-                // No accessible barangays -> no results
-                $query->whereRaw('1 = 0');
+                // If no accessible barangays, only show non-senior archives
+                $query->where('archive_type', '!=', 'senior_citizen');
             }
         }
 
@@ -66,18 +70,31 @@ class ArchiveController extends Controller
             $query->whereDate('archived_at', '<=', $to);
         }
 
-        // Search by OSCA ID or name
+        // Enhanced search for multiple archive types
         if ($search = $request->get('search')) {
             $searchLike = "%{$search}%";
             $query->where(function ($q) use ($searchLike) {
-                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.osca_id')) LIKE ?", [$searchLike])
-                    ->orWhereRaw(
-                        "CONCAT(" .
-                        "JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.first_name')), ' ', " .
-                        "JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.last_name'))" .
-                        ") LIKE ?",
-                        [$searchLike]
-                    );
+                // Search logic for 'senior_citizen'
+                $q->orWhere(function ($sq) use ($searchLike) {
+                    $sq->where('archive_type', 'senior_citizen')
+                        ->where(function ($ssq) use ($searchLike) {
+                            $ssq->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.osca_id')) LIKE ?", [$searchLike])
+                                ->orWhereRaw(
+                                    "CONCAT_WS(' ', JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.first_name')), JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.last_name'))) LIKE ?",
+                                    [$searchLike]
+                                );
+                        });
+                });
+
+                // Search logic for 'user' (admins, etc.)
+                $q->orWhere(function ($uq) use ($searchLike) {
+                    $uq->where('archive_type', 'user')
+                        ->where(function ($usq) use ($searchLike) {
+                            $usq->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.employee_id')) LIKE ?", [$searchLike])
+                                ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.username')) LIKE ?", [$searchLike])
+                                ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.name')) LIKE ?", [$searchLike]);
+                        });
+                });
             });
         }
 

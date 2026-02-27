@@ -47,7 +47,7 @@ const Announcements = () => {
   });
   const [filters, setFilters] = useState({
     search: "",
-    is_published: "",
+    is_published: null, // Use null for 'all'
   });
   const [formModal, setFormModal] = useState({
     visible: false,
@@ -66,7 +66,13 @@ const Announcements = () => {
   const fetchAnnouncements = async (page = 1, pageSize = 10) => {
     setLoading(true);
     try {
-      const params = { page, per_page: pageSize, ...filters };
+      const params = {
+        page,
+        per_page: pageSize,
+        search: filters.search,
+        // Only include is_published if it's not null
+        ...(filters.is_published !== null && { is_published: filters.is_published }),
+      };
       const response = await announcementsApi.getList(params);
       const { data, current_page, per_page, total } = response.data.data;
       setAnnouncements(data);
@@ -92,10 +98,17 @@ const Announcements = () => {
     fetchAnnouncements(paginationConfig.current, paginationConfig.pageSize);
   };
 
-  const handleSearch = (value) => {
-    setFilters((prev) => ({ ...prev, search: value }));
-    setTimeout(() => fetchAnnouncements(1), 300);
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      fetchAnnouncements(1);
+    }, 300); // Debounce search and filter changes
+
+    return () => clearTimeout(delayDebounce);
+  }, [filters]);
 
   const openCreateModal = () => {
     form.resetFields();
@@ -276,7 +289,7 @@ const Announcements = () => {
               placeholder="Search announcements..."
               prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
               allowClear
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
             />
           </Col>
           <Col xs={12} sm={6}>
@@ -284,13 +297,11 @@ const Announcements = () => {
               placeholder="Filter status"
               style={{ width: "100%" }}
               allowClear
-              onChange={(value) => {
-                setFilters((prev) => ({ ...prev, is_published: value }));
-                setTimeout(() => fetchAnnouncements(1), 100);
-              }}
+              value={filters.is_published}
+              onChange={(value) => handleFilterChange('is_published', value === undefined ? null : value)}
             >
-              <Option value="1">Published</Option>
-              <Option value="0">Draft</Option>
+              <Option value={1}>Published</Option>
+              <Option value={0}>Draft</Option>
             </Select>
           </Col>
           <Col xs={12} sm={8} style={{ textAlign: "right" }}>
@@ -387,17 +398,62 @@ const Announcements = () => {
             <Switch checkedChildren="Published" unCheckedChildren="Draft" />
           </Form.Item>
 
-          {formModal.mode === "edit" && formModal.item && (
-            <Card
-              type="inner"
-              title={
-                <span>
-                  <PaperClipOutlined /> Attachments
-                </span>
-              }
-              style={{ marginBottom: 16 }}
-            >
+          {/* Media Upload Section - Visible in both Create and Edit modes */}
+          <Card
+            type="inner"
+            title={
+              <span>
+                <PaperClipOutlined /> Attachments
+              </span>
+            }
+            style={{ marginBottom: 16 }}
+          >
+            {formModal.mode === 'create' && !formModal.item ? (
+              <Alert
+                message="Save the announcement first to enable media uploads."
+                type="info"
+                showIcon
+              />
+            ) : (
               <Upload
+                listType="picture-card"
+                fileList={mediaList.map(m => ({
+                  uid: m.id,
+                  name: m.file_path.split('/').pop(),
+                  status: 'done',
+                  url: m.url,
+                }))}
+                customRequest={async ({ file, onSuccess, onError }) => {
+                  setMediaUploading(true);
+                  try {
+                    await announcementsApi.uploadMedia(formModal.item.id, file);
+                    onSuccess();
+                    loadMedia(formModal.item.id); // Refresh list
+                  } catch (error) {
+                    onError(error);
+                    message.error("Upload failed");
+                  } finally {
+                    setMediaUploading(false);
+                  }
+                }}
+                onRemove={async (file) => {
+                  try {
+                    await announcementsApi.deleteMedia(file.uid);
+                    message.success("Attachment deleted");
+                    return true;
+                  } catch (error) {
+                    message.error("Failed to delete attachment");
+                    return false;
+                  }
+                }}
+              >
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
+                </div>
+              </Upload>
+            )}
+          </Card>
                 multiple={false}
                 showUploadList={false}
                 customRequest={async ({ file, onSuccess, onError }) => {

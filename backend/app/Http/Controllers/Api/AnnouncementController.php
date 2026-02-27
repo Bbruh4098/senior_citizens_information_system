@@ -79,6 +79,7 @@ class AnnouncementController extends Controller
             'location' => 'nullable|string|max:255',
             'target_audience' => 'nullable|string|max:255',
             'is_published' => 'boolean',
+            'barangay_id' => 'nullable|exists:barangays,id',
         ]);
 
         $user = $request->user();
@@ -90,15 +91,16 @@ class AnnouncementController extends Controller
             'event_date' => $request->input('event_date'),
             'location' => $request->input('location'),
             'target_audience' => $request->input('target_audience'),
-            'is_published' => $request->boolean('is_published'),
+            'is_published' => $request->boolean('is_published', false),
             'published_date' => $request->boolean('is_published') ? now() : null,
             'created_by' => $user->id,
+            'barangay_id' => $request->input('barangay_id'),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Announcement created successfully',
-            'data' => $announcement->load(['type', 'barangay']),
+            'data' => $announcement->load(['type', 'barangay', 'media']),
         ], 201);
     }
 
@@ -115,37 +117,31 @@ class AnnouncementController extends Controller
             'location' => 'nullable|string|max:255',
             'target_audience' => 'nullable|string|max:255',
             'is_published' => 'boolean',
+            'barangay_id' => 'nullable|exists:barangays,id',
         ]);
 
         $announcement = Announcement::findOrFail($id);
 
-        $updateData = [];
+        $updateData = $request->only([
+            'title', 'type_id', 'event_date', 'location', 'target_audience', 'barangay_id'
+        ]);
 
-        if ($request->has('title')) {
-            $updateData['title'] = $request->input('title');
-        }
         if ($request->has('content')) {
             $updateData['description'] = $request->input('content');
         }
-        if ($request->has('type_id')) {
-            $updateData['type_id'] = $request->input('type_id');
-        }
-        if ($request->has('event_date')) {
-            $updateData['event_date'] = $request->input('event_date');
-        }
-        if ($request->has('location')) {
-            $updateData['location'] = $request->input('location');
-        }
-        if ($request->has('target_audience')) {
-            $updateData['target_audience'] = $request->input('target_audience');
-        }
-        if ($request->has('is_published')) {
-            $updateData['is_published'] = $request->boolean('is_published');
 
-            // Set published_date if publishing for first time
-            if ($request->boolean('is_published') && !$announcement->is_published) {
+        if ($request->has('is_published')) {
+            $isPublished = $request->boolean('is_published');
+            $updateData['is_published'] = $isPublished;
+
+            // Set published_date if publishing for the first time
+            if ($isPublished && !$announcement->is_published) {
                 $updateData['published_date'] = now();
             }
+            // If un-publishing, you might want to nullify the date
+            // else if (!$isPublished) {
+            //     $updateData['published_date'] = null;
+            // }
         }
 
         $announcement->update($updateData);
