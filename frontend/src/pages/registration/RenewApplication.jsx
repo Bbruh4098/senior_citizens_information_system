@@ -21,6 +21,7 @@ import {
     InputNumber,
     Checkbox,
     Image,
+    Tag,
 } from 'antd';
 import {
     UserOutlined,
@@ -52,6 +53,16 @@ const RenewApplication = () => {
     const [barangays, setBarangays] = useState([]);
     const [submitResult, setSubmitResult] = useState(null);
     const [calculatedAge, setCalculatedAge] = useState(null);
+
+    // Age category helper
+    const getAgeCategory = (age) => {
+        if (age >= 100) return { label: 'Centenarian', color: 'gold' };
+        if (age >= 90) return { label: 'Nonagenarian', color: 'purple' };
+        if (age >= 80) return { label: 'Octogenarian', color: 'blue' };
+        if (age >= 70) return { label: 'Septuagenarian', color: 'cyan' };
+        if (age >= 60) return { label: 'Sexagenarian', color: 'green' };
+        return null;
+    };
 
     // Senior search state
     const [oscaIdInput, setOscaIdInput] = useState('');
@@ -596,7 +607,14 @@ const RenewApplication = () => {
                                 {seniorData.full_name || `${seniorData.first_name} ${seniorData.middle_name || ''} ${seniorData.last_name}`.trim()}
                             </Descriptions.Item>
                             <Descriptions.Item label="Age">
-                                {seniorData.age || calculatedAge} years old
+                                <Space>
+                                    {seniorData.age || calculatedAge} years old
+                                    {(() => {
+                                        const age = seniorData.age || calculatedAge;
+                                        const cat = age ? getAgeCategory(age) : null;
+                                        return cat ? <Tag color={cat.color}>{cat.label}</Tag> : null;
+                                    })()}
+                                </Space>
                             </Descriptions.Item>
                             <Descriptions.Item label="Sex">
                                 {seniorData.gender?.name || (seniorData.gender_id === 1 ? 'Male' : seniorData.gender_id === 2 ? 'Female' : '-')}
@@ -680,7 +698,14 @@ const RenewApplication = () => {
                                         <Space>
                                             <span>Date of Birth</span>
                                             {calculatedAge !== null && (
-                                                <Text type="secondary">({calculatedAge} years old)</Text>
+                                                <Space size="small">
+                                                    <Text type="secondary">({calculatedAge} years old)</Text>
+                                                    {getAgeCategory(calculatedAge) && (
+                                                        <Tag color={getAgeCategory(calculatedAge).color} style={{ marginRight: 0 }}>
+                                                            {getAgeCategory(calculatedAge).label}
+                                                        </Tag>
+                                                    )}
+                                                </Space>
                                             )}
                                         </Space>
                                     }

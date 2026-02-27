@@ -27,6 +27,7 @@ import BranchManagement from "./pages/admin/BranchManagement";
 import BenefitSettings from "./pages/admin/BenefitSettings";
 import BenefitComplaints from "./pages/admin/BenefitComplaints";
 import AuditLog from "./pages/admin/AuditLog";
+import DataManagement from "./pages/admin/DataManagement";
 import Announcements from "./pages/Announcements";
 import Archives from "./pages/Archives";
 
@@ -173,6 +174,14 @@ function App() {
                   element={
                     <ProtectedRoute allowedRoles={[1]}>
                       <AuditLog />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="settings/data-management"
+                  element={
+                    <ProtectedRoute allowedRoles={[1]}>
+                      <DataManagement />
                     </ProtectedRoute>
                   }
                 />

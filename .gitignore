@@ -54,3 +54,7 @@ coverage/
 # Deployment docs (local only)
 DEPLOYMENT.md
 *.production.example
+
+
+PRD_SCIS.md
+README.md

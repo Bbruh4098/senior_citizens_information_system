@@ -149,6 +149,51 @@ class ApplicationController extends Controller
             $data['applicant_data']['personal_info']['barangay_name'] = $application->senior->barangay->name;
         }
 
+        // Always resolve educational_attainment_name from background_info
+        if ($application->applicant_data) {
+            $background = $application->applicant_data['background_info'] ?? [];
+            if (isset($background['educational_attainment_id']) && !isset($data['applicant_data']['background_info']['educational_attainment_name'])) {
+                $ea = \App\Models\EducationalAttainment::find($background['educational_attainment_id']);
+                if (!isset($data['applicant_data']['background_info'])) {
+                    $data['applicant_data']['background_info'] = $background;
+                }
+                $data['applicant_data']['background_info']['educational_attainment_name'] = $ea ? $ea->level : null;
+            }
+        }
+
+        // Auto-match family members to registered seniors (admin-side enrichment)
+        if ($application->applicant_data && !empty($data['applicant_data']['family_members'])) {
+            $familyMembers = $data['applicant_data']['family_members'];
+            foreach ($familyMembers as $index => $member) {
+                $firstName = strtolower(trim($member['first_name'] ?? ''));
+                $lastName = strtolower(trim($member['last_name'] ?? ''));
+                $birthdate = $member['birthdate'] ?? null;
+
+                if ($firstName && $lastName) {
+                    $query = SeniorCitizen::whereRaw('LOWER(TRIM(first_name)) = ?', [$firstName])
+                        ->whereRaw('LOWER(TRIM(last_name)) = ?', [$lastName])
+                        ->where('is_active', true);
+
+                    if ($birthdate) {
+                        $query->whereDate('birthdate', $birthdate);
+                    }
+
+                    $match = $query->with('barangay')->first();
+
+                    if ($match) {
+                        $familyMembers[$index]['matched_senior'] = [
+                            'id' => $match->id,
+                            'osca_id' => $match->osca_id,
+                            'full_name' => $match->full_name,
+                            'barangay' => $match->barangay?->name,
+                            'birthdate' => $match->birthdate?->format('Y-m-d'),
+                        ];
+                    }
+                }
+            }
+            $data['applicant_data']['family_members'] = $familyMembers;
+        }
+
         return response()->json([
             'success' => true,
             'data' => $data,
@@ -290,6 +335,7 @@ class ApplicationController extends Controller
         $contactRecord = Contact::create([
             'mobile_number' => $contact['mobile_number'] ?? null,
             'telephone_number' => $contact['telephone_number'] ?? null,
+            'email' => $contact['email'] ?? null,
             'house_number' => $contact['house_number'] ?? null,
             'street' => $contact['street'] ?? null,
             'barangay_id' => $personal['barangay_id'] ?? null,
@@ -332,15 +378,27 @@ class ApplicationController extends Controller
         if (!empty($familyMembers)) {
             foreach ($familyMembers as $member) {
                 if (!empty($member['first_name'])) {
+                    $birthdate = $member['birthdate'] ?? null;
+                    $age = $member['age'] ?? null;
+                    
+                    // Auto-compute age from birthdate if available
+                    if ($birthdate) {
+                        $age = \Carbon\Carbon::parse($birthdate)->age;
+                    }
+
                     DB::table('family_members')->insert([
                         'senior_id' => $senior->id,
                         'first_name' => $member['first_name'] ?? '',
                         'middle_name' => $member['middle_name'] ?? null,
                         'last_name' => $member['last_name'] ?? '',
                         'extension' => $member['extension'] ?? null,
+                        'birthdate' => $birthdate,
                         'relationship' => $member['relationship'] ?? null,
-                        'age' => $member['age'] ?? null,
+                        'age' => $age,
                         'monthly_salary' => $member['monthly_salary'] ?? null,
+                        'mobile_number' => $member['mobile_number'] ?? null,
+                        'telephone_number' => $member['telephone_number'] ?? null,
+                        'email' => $member['email'] ?? null,
                         'created_at' => now(),
                     ]);
                 }

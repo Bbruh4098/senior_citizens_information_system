@@ -48,7 +48,7 @@ class SeniorController extends Controller
             }
         }
 
-        // Age categories filter (octogenarians, nonagenarians, centenarians)
+        // Age categories filter
         if ($ageCategories = $request->get('age_categories')) {
             $categories = is_array($ageCategories) ? $ageCategories : explode(',', $ageCategories);
             
@@ -56,6 +56,12 @@ class SeniorController extends Controller
                 foreach ($categories as $category) {
                     $category = trim($category);
                     switch ($category) {
+                        case 'sexagenarians':
+                            $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69');
+                            break;
+                        case 'septuagenarians':
+                            $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79');
+                            break;
                         case 'octogenarians':
                             $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89');
                             break;
@@ -114,6 +120,7 @@ class SeniorController extends Controller
                 'registeredBy',
                 'applications.applicationType',
                 'seniorIds',
+                'familyMembers',
             ])
                 ->accessibleBy($user)
                 ->findOrFail($id);
@@ -218,7 +225,7 @@ class SeniorController extends Controller
                     $senior->age,
                     $senior->gender->name ?? '',
                     $senior->barangay->name ?? '',
-                    $senior->contact->mobile ?? '',
+                    $senior->contact->mobile_number ?? '',
                 ]);
             }
 
@@ -260,7 +267,7 @@ class SeniorController extends Controller
             'notes' => 'nullable|string',
             // Contact fields
             'mobile_number' => 'nullable|string|max:50',
-            'telephone' => 'nullable|string|max:50',
+            'telephone_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:100',
         ]);
 
@@ -285,7 +292,7 @@ class SeniorController extends Controller
 
             foreach ($validated as $field => $value) {
                 // Skip contact fields - handled separately
-                if (in_array($field, ['mobile_number', 'telephone', 'email'])) {
+                if (in_array($field, ['mobile_number', 'telephone_number', 'email'])) {
                     continue;
                 }
                 
@@ -298,21 +305,21 @@ class SeniorController extends Controller
             }
 
             // Update senior record
-            $senior->fill(array_diff_key($validated, array_flip(['mobile_number', 'telephone', 'email'])));
+            $senior->fill(array_diff_key($validated, array_flip(['mobile_number', 'telephone_number', 'email'])));
             $senior->save();
 
             // Update contact info if provided
-            if (isset($validated['mobile_number']) || isset($validated['telephone']) || isset($validated['email'])) {
+            if (isset($validated['mobile_number']) || isset($validated['telephone_number']) || isset($validated['email'])) {
                 $contact = $senior->contact;
                 if (!$contact) {
                     $contact = $senior->contact()->create([
-                        'mobile' => $validated['mobile_number'] ?? null,
-                        'telephone' => $validated['telephone'] ?? null,
+                        'mobile_number' => $validated['mobile_number'] ?? null,
+                        'telephone_number' => $validated['telephone_number'] ?? null,
                         'email' => $validated['email'] ?? null,
                     ]);
                 } else {
-                    if (isset($validated['mobile_number'])) $contact->mobile = $validated['mobile_number'];
-                    if (isset($validated['telephone'])) $contact->telephone = $validated['telephone'];
+                    if (isset($validated['mobile_number'])) $contact->mobile_number = $validated['mobile_number'];
+                    if (isset($validated['telephone_number'])) $contact->telephone_number = $validated['telephone_number'];
                     if (isset($validated['email'])) $contact->email = $validated['email'];
                     $contact->save();
                 }

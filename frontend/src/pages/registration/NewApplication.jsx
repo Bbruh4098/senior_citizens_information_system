@@ -39,6 +39,7 @@ import {
     PlusOutlined,
     DeleteOutlined,
     EyeOutlined,
+    SearchOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { registrationApi, preRegistrationApi } from '../../services/api';
@@ -83,24 +84,34 @@ const NewApplication = () => {
     const [preRegistrationId, setPreRegistrationId] = useState(null);
     const [preRegistrationRef, setPreRegistrationRef] = useState(null);
 
+    // Age category helper
+    const getAgeCategory = (age) => {
+        if (age >= 100) return { label: 'Centenarian', color: 'gold' };
+        if (age >= 90) return { label: 'Nonagenarian', color: 'purple' };
+        if (age >= 80) return { label: 'Octogenarian', color: 'blue' };
+        if (age >= 70) return { label: 'Septuagenarian', color: 'cyan' };
+        if (age >= 60) return { label: 'Sexagenarian', color: 'green' };
+        return null;
+    };
+
     // Target sectors from original form
     const targetSectors = [
-        { value: 'PNGNA', label: 'PNGNA', description: 'Member of national senior citizens organization' },
-        { value: 'WEPC', label: 'WEPC', description: 'Female senior citizens in empowerment programs' },
-        { value: 'PWD', label: 'PWD', description: 'Senior with recognized disability' },
-        { value: 'YNSP', label: 'YNSP', description: 'Special care program' },
-        { value: 'PASP', label: 'PASP', description: 'Hope and support program members' },
-        { value: 'KIA/WIA', label: 'KIA/WIA', description: '' },
+        { value: 'PNGNA', label: 'PNGNA', description: 'Pambansang Nagkakaisa ng mga Nakatatanda' },
+        { value: 'WEPC', label: 'WEPC', description: 'Women Empowerment Program for the Community' },
+        { value: 'PWD', label: 'PWD', description: 'Person with Disability' },
+        { value: 'YNSP', label: 'YNSP', description: 'Yakap ng Nagkakaisa sa Serbisyo ng Pangulo' },
+        { value: 'PASP', label: 'PASP', description: 'Pag-asa at Suporta ng Pangulo' },
+        { value: 'KIA/WIA', label: 'KIA/WIA', description: 'Killed in Action / Wounded in Action' },
     ];
 
     const subCategories = [
         { value: 'Solo Parents', label: 'Solo Parents', description: 'Senior citizen raising children alone' },
-        { value: 'Indigenous Person (IP)', label: 'Indigenous Person (IP)', description: '' },
+        { value: 'Indigenous Person (IP)', label: 'IP - Indigenous Person', description: '' },
         { value: 'Recovering Person who used drugs', label: 'Recovering Person who used drugs', description: '' },
-        { value: "4P's DSWD Beneficiaries", label: "4P's DSWD Beneficiaries", description: '' },
+        { value: "4P's DSWD Beneficiaries", label: "4P's (DSWD Beneficiaries)", description: 'Pantawid Pamilyang Pilipino Program' },
         { value: 'Street Dwellers', label: 'Street Dwellers', description: '' },
-        { value: 'Psychosocial/Mental/Learning Disability', label: 'Psychosocial/Mental/Learning Disability', description: '' },
-        { value: 'Stateless Person/Asylum', label: 'Stateless Person/Asylum', description: '' },
+        { value: 'Psychosocial/Mental/Learning Disability', label: 'Psychosocial / Mental / Learning Disability', description: '' },
+        { value: 'Stateless Person/Asylum', label: 'Stateless Person / Asylum Seeker', description: '' },
     ];
 
     // Load lookup options on mount
@@ -450,7 +461,7 @@ const NewApplication = () => {
     const addFamilyMember = () => {
         setFamilyMembers([
             ...familyMembers,
-            { id: Date.now(), first_name: '', middle_name: '', last_name: '', extension: '', relationship: '', age: '', monthly_salary: '' },
+            { id: Date.now(), first_name: '', middle_name: '', last_name: '', extension: '', birthdate: null, relationship: '', age: '', monthly_salary: '', mobile_number: '', telephone_number: '', email: '', searchQuery: '', searchResults: [], searching: false },
         ]);
     };
 
@@ -459,9 +470,62 @@ const NewApplication = () => {
     };
 
     const updateFamilyMember = (id, field, value) => {
-        setFamilyMembers(
-            familyMembers.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+        setFamilyMembers(prev =>
+            prev.map((m) => {
+                if (m.id !== id) return m;
+                const updated = { ...m, [field]: value };
+                // Auto-calculate age when birthdate changes
+                if (field === 'birthdate' && value) {
+                    updated.age = dayjs().diff(dayjs(value), 'year');
+                } else if (field === 'birthdate' && !value) {
+                    updated.age = '';
+                }
+                return updated;
+            })
         );
+    };
+
+    // Search for registered seniors to add as family members
+    const searchFamilySenior = async (memberId, query) => {
+        if (!query || query.length < 2) {
+            updateFamilyMember(memberId, 'searchResults', []);
+            return;
+        }
+        updateFamilyMember(memberId, 'searching', true);
+        try {
+            const response = await registrationApi.searchFamilySenior(query);
+            setFamilyMembers(prev => prev.map(m =>
+                m.id === memberId ? { ...m, searchResults: response.data.data || [], searching: false } : m
+            ));
+        } catch (error) {
+            console.error('Family senior search failed:', error);
+            setFamilyMembers(prev => prev.map(m =>
+                m.id === memberId ? { ...m, searchResults: [], searching: false } : m
+            ));
+        }
+    };
+
+    // Fill family member from selected senior
+    const fillFamilyMemberFromSenior = (memberId, senior) => {
+        setFamilyMembers(prev => prev.map(m => {
+            if (m.id !== memberId) return m;
+            return {
+                ...m,
+                first_name: senior.first_name,
+                middle_name: senior.middle_name || '',
+                last_name: senior.last_name,
+                extension: senior.extension || '',
+                birthdate: senior.birthdate,
+                age: senior.age,
+                monthly_salary: senior.monthly_salary || '',
+                mobile_number: senior.mobile_number || '',
+                telephone_number: senior.telephone_number || '',
+                email: senior.email || '',
+                searchResults: [],
+                searchQuery: '',
+            };
+        }));
+        message.success(`Filled from ${senior.full_name} (${senior.osca_id})`);
     };
 
     const steps = [
@@ -534,7 +598,12 @@ const NewApplication = () => {
     const handleSubmit = async (saveAsDraft = false) => {
         try {
             // Validate required fields first (first step fields are always required)
-            const allData = { ...formData, ...form.getFieldsValue() };
+            // Filter out undefined values from current step's form to avoid overwriting saved data from other steps
+            const currentValues = form.getFieldsValue();
+            const definedValues = Object.fromEntries(
+                Object.entries(currentValues).filter(([, v]) => v !== undefined)
+            );
+            const allData = { ...formData, ...definedValues };
 
             // Check required fields
             const missingFields = [];
@@ -602,6 +671,7 @@ const NewApplication = () => {
                 street: allData.street,
                 mobile_number: allData.mobile_number,
                 telephone_number: allData.telephone_number,
+                email: allData.email,
 
                 // Socioeconomic
                 educational_attainment_id: allData.educational_attainment_id,
@@ -690,63 +760,54 @@ const NewApplication = () => {
             </Title>
 
             <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="first_name"
                         label={<span>First Name <span style={{ color: '#fa8c16' }}>*</span></span>}
                         rules={[{ required: true, message: 'First name is required' }]}
                     >
-                        <Input placeholder="Enter first name" size="large" />
+                        <Input placeholder="First name" size="large" />
                     </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item name="middle_name" label="Middle Name/Middle Initial">
-                        <Input placeholder="Enter middle name" size="large" />
+                        <Input placeholder="Middle name" size="large" />
                     </Form.Item>
                 </Col>
-            </Row>
-
-            <Row gutter={16}>
-                <Col xs={24}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="last_name"
                         label={<span>Last Name <span style={{ color: '#fa8c16' }}>*</span></span>}
                         rules={[{ required: true, message: 'Last name is required' }]}
                     >
-                        <Input placeholder="Enter last name" size="large" />
+                        <Input placeholder="Last name" size="large" />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Form.Item name="extension" label="Extension">
+                        <Input placeholder="Jr., Sr., III" size="large" />
                     </Form.Item>
                 </Col>
             </Row>
 
             <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                    <Form.Item name="extension" label="Extension">
-                        <Input placeholder="Jr., Sr., III, etc." size="large" />
-                    </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="house_number"
                         label="House No."
                     >
-                        <Input placeholder="House number (optional)" size="large" />
+                        <Input placeholder="House number" size="large" />
                     </Form.Item>
                 </Col>
-            </Row>
-
-            <Row gutter={16}>
-                <Col xs={24}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="street"
                         label="Street"
                     >
-                        <Input placeholder="Street name (optional)" size="large" />
+                        <Input placeholder="Street name" size="large" />
                     </Form.Item>
                 </Col>
-            </Row>
-
-            <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="barangay_id"
                         label={<span>Barangay <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -768,7 +829,7 @@ const NewApplication = () => {
                         </Select>
                     </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item label="City, Province, Postal Code">
                         <Input
                             value="Zamboanga City, Philippines, 7000"
@@ -781,7 +842,7 @@ const NewApplication = () => {
             </Row>
 
             <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="birthdate"
                         label={<span>Date of Birth <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -800,7 +861,7 @@ const NewApplication = () => {
                         <DatePicker
                             size="large"
                             style={{ width: '100%' }}
-                            placeholder="Select or type date (YYYY-MM-DD)"
+                            placeholder="YYYY-MM-DD"
                             format={['YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY']}
                             onChange={handleBirthdateChange}
                             showToday={false}
@@ -808,7 +869,7 @@ const NewApplication = () => {
                         />
                     </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         label={<span>Age <span style={{ color: '#fa8c16' }}>*</span></span>}
                     >
@@ -817,14 +878,16 @@ const NewApplication = () => {
                             readOnly
                             size="large"
                             style={{ backgroundColor: '#f5f5f5' }}
-                            placeholder="Calculated from birthdate"
+                            placeholder="From birthdate"
+                            suffix={calculatedAge !== null && getAgeCategory(calculatedAge) ? (
+                                <Tag color={getAgeCategory(calculatedAge).color} style={{ marginRight: 0 }}>
+                                    {getAgeCategory(calculatedAge).label}
+                                </Tag>
+                            ) : null}
                         />
                     </Form.Item>
                 </Col>
-            </Row>
-
-            <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="gender_id"
                         label={<span>Sex <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -834,9 +897,7 @@ const NewApplication = () => {
                             placeholder="Select Sex"
                             size="large"
                             onChange={(value) => {
-                                // Clear civil status if it becomes invalid for the new gender
                                 const currentCivilStatus = form.getFieldValue('civil_status_id');
-                                // Widow(4) only for Female(2), Widower(5) only for Male(1)
                                 if ((value === 1 && currentCivilStatus === 4) ||
                                     (value === 2 && currentCivilStatus === 5)) {
                                     form.setFieldValue('civil_status_id', undefined);
@@ -851,18 +912,17 @@ const NewApplication = () => {
                         </Select>
                     </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item
                         name="civil_status_id"
                         label={<span>Civil Status <span style={{ color: '#fa8c16' }}>*</span></span>}
                         rules={[{ required: true, message: 'Civil Status is required' }]}
                         dependencies={['gender_id']}
                     >
-                        <Select placeholder="Select Civil Status" size="large">
+                        <Select placeholder="Select" size="large">
                             {lookupOptions?.civil_statuses?.filter((cs) => {
-                                // Widow(4) only for Female(2), Widower(5) only for Male(1)
-                                if (cs.id === 4 && selectedGenderId === 1) return false; // Hide Widow for Male
-                                if (cs.id === 5 && selectedGenderId === 2) return false; // Hide Widower for Female
+                                if (cs.id === 4 && selectedGenderId === 1) return false;
+                                if (cs.id === 5 && selectedGenderId === 2) return false;
                                 return true;
                             }).map((cs) => (
                                 <Option key={cs.id} value={cs.id}>
@@ -880,9 +940,24 @@ const NewApplication = () => {
             </Title>
 
             <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
+                    <Form.Item name="mobile_number" label="Mobile Number">
+                        <Input placeholder="09XX-XXX-XXXX" size="large" />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Form.Item name="telephone_number" label="Telephone Number">
+                        <Input placeholder="(062) XXX-XXXX" size="large" />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Form.Item name="email" label="Email">
+                        <Input placeholder="email@example.com" size="large" />
+                    </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item name="educational_attainment_id" label="Educational Attainment">
-                        <Select placeholder="Select Educational Attainment" size="large" allowClear>
+                        <Select placeholder="Select" size="large" allowClear>
                             {lookupOptions?.educational_attainments?.map((ea) => (
                                 <Option key={ea.id} value={ea.id}>
                                     {ea.name}
@@ -891,20 +966,7 @@ const NewApplication = () => {
                         </Select>
                     </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
-                    <Form.Item name="mobile_number" label="Mobile Number">
-                        <Input placeholder="09XX-XXX-XXXX" size="large" />
-                    </Form.Item>
-                </Col>
-            </Row>
-
-            <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                    <Form.Item name="telephone_number" label="Telephone Number">
-                        <Input placeholder="(062) XXX-XXXX" size="large" />
-                    </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
+                <Col xs={24} sm={12} md={6}>
                     <Form.Item name="monthly_salary" label="Monthly Salary">
                         <InputNumber
                             placeholder="0.00"
@@ -1010,8 +1072,61 @@ const NewApplication = () => {
                                 />
                             }
                         >
+                            {/* Matched Senior Indicator */}
+                            {member.matched_senior && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    icon={<CheckCircleOutlined />}
+                                    message={
+                                        <span>
+                                            This person is a registered senior:{' '}
+                                            <strong>{member.matched_senior.full_name} ({member.matched_senior.osca_id})</strong>
+                                            {member.matched_senior.barangay && ` · ${member.matched_senior.barangay}`}
+                                        </span>
+                                    }
+                                    style={{ marginBottom: 12 }}
+                                />
+                            )}
+                            {/* Senior Search */}
+                            <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f0f5ff', borderRadius: 8, border: '1px dashed #adc6ff' }}>
+                                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Search registered senior to auto-fill:</Text>
+                                <Space.Compact style={{ width: '100%' }}>
+                                    <Input
+                                        placeholder="Type name or OSCA ID..."
+                                        value={member.searchQuery || ''}
+                                        onChange={(e) => {
+                                            updateFamilyMember(member.id, 'searchQuery', e.target.value);
+                                            searchFamilySenior(member.id, e.target.value);
+                                        }}
+                                        prefix={<SearchOutlined style={{ color: '#999' }} />}
+                                        allowClear
+                                        onClear={() => updateFamilyMember(member.id, 'searchResults', [])}
+                                    />
+                                </Space.Compact>
+                                {member.searching && <Spin size="small" style={{ marginTop: 4 }} />}
+                                {member.searchResults?.length > 0 && (
+                                    <div style={{ marginTop: 8, maxHeight: 150, overflowY: 'auto' }}>
+                                        {member.searchResults.map(sr => (
+                                            <div
+                                                key={sr.id}
+                                                onClick={() => fillFamilyMemberFromSenior(member.id, sr)}
+                                                style={{ padding: '6px 8px', cursor: 'pointer', borderRadius: 4, marginBottom: 2, background: '#fff', border: '1px solid #f0f0f0' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = '#e6f7ff'}
+                                                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                                            >
+                                                <Text strong>{sr.full_name}</Text>
+                                                <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                                                    {sr.osca_id} · {sr.age} yrs · {sr.barangay}
+                                                </Text>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <Row gutter={16}>
-                                <Col xs={24} sm={8}>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item
                                         label={<span>First Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                         style={{ marginBottom: 8 }}
@@ -1023,7 +1138,7 @@ const NewApplication = () => {
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col xs={24} sm={8}>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item label="Middle Name" style={{ marginBottom: 8 }}>
                                         <Input
                                             value={member.middle_name}
@@ -1032,7 +1147,7 @@ const NewApplication = () => {
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col xs={24} sm={8}>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item
                                         label={<span>Last Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                         style={{ marginBottom: 8 }}
@@ -1044,9 +1159,7 @@ const NewApplication = () => {
                                         />
                                     </Form.Item>
                                 </Col>
-                            </Row>
-                            <Row gutter={16}>
-                                <Col xs={24} sm={6}>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item label="Extension" style={{ marginBottom: 8 }}>
                                         <Input
                                             value={member.extension}
@@ -1055,7 +1168,9 @@ const NewApplication = () => {
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col xs={24} sm={6}>
+                            </Row>
+                            <Row gutter={16}>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item
                                         label={<span>Relationship <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                         style={{ marginBottom: 8 }}
@@ -1090,18 +1205,29 @@ const NewApplication = () => {
                                         )}
                                     </Form.Item>
                                 </Col>
-                                <Col xs={24} sm={6}>
-                                    <Form.Item label="Age" style={{ marginBottom: 8 }}>
-                                        <InputNumber
-                                            value={member.age}
-                                            onChange={(value) => updateFamilyMember(member.id, 'age', value)}
-                                            placeholder="Age"
-                                            min={0}
+                                <Col xs={24} sm={12} md={6}>
+                                    <Form.Item label="Date of Birth" style={{ marginBottom: 8 }}>
+                                        <DatePicker
+                                            value={member.birthdate ? dayjs(member.birthdate) : null}
+                                            onChange={(date) => updateFamilyMember(member.id, 'birthdate', date ? date.format('YYYY-MM-DD') : null)}
                                             style={{ width: '100%' }}
+                                            placeholder="YYYY-MM-DD"
+                                            format={['YYYY-MM-DD', 'MM/DD/YYYY']}
+                                            allowClear
                                         />
                                     </Form.Item>
                                 </Col>
-                                <Col xs={24} sm={6}>
+                                <Col xs={24} sm={12} md={6}>
+                                    <Form.Item label="Age" style={{ marginBottom: 8 }}>
+                                        <Input
+                                            value={member.age !== '' && member.age !== null ? `${member.age}` : ''}
+                                            readOnly
+                                            placeholder="From birthdate"
+                                            style={{ backgroundColor: '#f5f5f5' }}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={6}>
                                     <Form.Item label="Monthly Salary" style={{ marginBottom: 8 }}>
                                         <InputNumber
                                             value={member.monthly_salary}
@@ -1109,6 +1235,35 @@ const NewApplication = () => {
                                             placeholder="0.00"
                                             min={0}
                                             style={{ width: '100%' }}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Row gutter={16}>
+                                <Col xs={24} sm={12} md={6}>
+                                    <Form.Item label="Mobile Number" style={{ marginBottom: 8 }}>
+                                        <Input
+                                            value={member.mobile_number}
+                                            onChange={(e) => updateFamilyMember(member.id, 'mobile_number', e.target.value)}
+                                            placeholder="09XXXXXXXXX"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={6}>
+                                    <Form.Item label="Telephone Number" style={{ marginBottom: 8 }}>
+                                        <Input
+                                            value={member.telephone_number}
+                                            onChange={(e) => updateFamilyMember(member.id, 'telephone_number', e.target.value)}
+                                            placeholder="(062) XXX-XXXX"
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12} md={6}>
+                                    <Form.Item label="Email" style={{ marginBottom: 8 }}>
+                                        <Input
+                                            value={member.email}
+                                            onChange={(e) => updateFamilyMember(member.id, 'email', e.target.value)}
+                                            placeholder="email@example.com"
                                         />
                                     </Form.Item>
                                 </Col>
@@ -1426,7 +1581,16 @@ const NewApplication = () => {
                         {data.birthdate?.format('MMMM D, YYYY') || '-'}
                     </Descriptions.Item>
                     <Descriptions.Item label="Age">
-                        {calculatedAge !== null ? `${calculatedAge} years old` : '-'}
+                        {calculatedAge !== null ? (
+                            <Space>
+                                {`${calculatedAge} years old`}
+                                {getAgeCategory(calculatedAge) && (
+                                    <Tag color={getAgeCategory(calculatedAge).color}>
+                                        {getAgeCategory(calculatedAge).label}
+                                    </Tag>
+                                )}
+                            </Space>
+                        ) : '-'}
                     </Descriptions.Item>
                     <Descriptions.Item label="Sex">
                         {selectedGender?.name || '-'}

@@ -181,6 +181,7 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
     const contactInfo = applicantData.contact_info || {};
     const addressData = applicantData.address || {};
     const familyMembers = applicantData.family_members || [];
+    const backgroundInfo = applicantData.background_info || {};
     const targetSectors = applicantData.target_sectors || [];
     const subCategories = applicantData.sub_categories || [];
     // Documents come from the relationship, not applicant_data
@@ -281,16 +282,33 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                 </Descriptions>
             </Card>
 
-            <Card size="small" title="Contact Information">
-                <Descriptions column={2} size="small" bordered>
+            <Card size="small" title="Contact Information" style={{ marginBottom: 16 }}>
+                <Descriptions column={3} size="small" bordered>
                     <Descriptions.Item label="Mobile Number">
                         <FieldStatus value={contactInfo.mobile_number} label="Mobile Number" optional />
                     </Descriptions.Item>
                     <Descriptions.Item label="Telephone">
-                        <FieldStatus value={contactInfo.telephone} label="Telephone" optional />
+                        <FieldStatus value={contactInfo.telephone_number} label="Telephone" optional />
                     </Descriptions.Item>
-                    <Descriptions.Item label="Email" span={2}>
+                    <Descriptions.Item label="Email">
                         <FieldStatus value={contactInfo.email} label="Email" optional />
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
+
+            <Card size="small" title="Background Information">
+                <Descriptions column={2} size="small" bordered>
+                    <Descriptions.Item label="Educational Attainment">
+                        <FieldStatus value={backgroundInfo.educational_attainment_name} label="Educational Attainment" optional />
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Monthly Salary">
+                        <FieldStatus value={backgroundInfo.monthly_salary ? `₱${Number(backgroundInfo.monthly_salary).toLocaleString()}` : null} label="Monthly Salary" optional />
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Occupation">
+                        <FieldStatus value={backgroundInfo.occupation} label="Occupation" optional />
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Other Skills">
+                        <FieldStatus value={backgroundInfo.other_skills} label="Other Skills" optional />
                     </Descriptions.Item>
                 </Descriptions>
             </Card>
@@ -305,10 +323,13 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                     rowKey={(record, index) => index}
                     size="small"
                     pagination={false}
+                    scroll={{ x: 900 }}
                     columns={[
                         {
                             title: 'Name',
                             key: 'name',
+                            fixed: 'left',
+                            width: 200,
                             render: (_, record) => {
                                 const parts = [
                                     record.first_name,
@@ -316,12 +337,40 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                                     record.last_name,
                                     record.extension,
                                 ].filter(Boolean);
-                                return parts.join(' ') || '-';
+                                const name = parts.join(' ') || '-';
+                                return (
+                                    <div>
+                                        <div>{name}</div>
+                                        {record.matched_senior && (
+                                            <Tag color="green" style={{ fontSize: 11, marginTop: 2 }}>
+                                                <CheckCircleOutlined /> Registered: {record.matched_senior.osca_id}
+                                            </Tag>
+                                        )}
+                                    </div>
+                                );
                             },
                         },
-                        { title: 'Relationship', dataIndex: 'relationship', key: 'relationship', render: (val) => val || '-' },
-                        { title: 'Age', dataIndex: 'age', key: 'age', width: 80, render: (val) => val || '-' },
-                        { title: 'Monthly Salary', dataIndex: 'monthly_salary', key: 'monthly_salary', render: (val) => val ? `₱${Number(val).toLocaleString()}` : '-' },
+                        { title: 'Relationship', dataIndex: 'relationship', key: 'relationship', width: 110, render: (val) => val || '-' },
+                        {
+                            title: 'Date of Birth',
+                            dataIndex: 'birthdate',
+                            key: 'birthdate',
+                            width: 120,
+                            render: (val) => val ? dayjs(val).format('MMM D, YYYY') : '-',
+                        },
+                        {
+                            title: 'Age',
+                            key: 'age',
+                            width: 60,
+                            render: (_, record) => {
+                                if (record.birthdate) return dayjs().diff(dayjs(record.birthdate), 'year');
+                                return record.age || '-';
+                            },
+                        },
+                        { title: 'Monthly Salary', dataIndex: 'monthly_salary', key: 'monthly_salary', width: 120, render: (val) => val ? `₱${Number(val).toLocaleString()}` : '-' },
+                        { title: 'Mobile', dataIndex: 'mobile_number', key: 'mobile_number', width: 130, render: (val) => val || '-' },
+                        { title: 'Telephone', dataIndex: 'telephone_number', key: 'telephone_number', width: 130, render: (val) => val || '-' },
+                        { title: 'Email', dataIndex: 'email', key: 'email', width: 180, render: (val) => val || '-' },
                     ]}
                 />
             ) : (

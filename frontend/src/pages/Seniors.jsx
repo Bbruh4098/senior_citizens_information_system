@@ -202,6 +202,8 @@ const Seniors = () => {
         if (age >= 100) return <Tag color="gold">Centenarian</Tag>;
         if (age >= 90) return <Tag color="purple">Nonagenarian</Tag>;
         if (age >= 80) return <Tag color="blue">Octogenarian</Tag>;
+        if (age >= 70) return <Tag color="cyan">Septuagenarian</Tag>;
+        if (age >= 60) return <Tag color="green">Sexagenarian</Tag>;
         return null;
     };
 
@@ -290,8 +292,9 @@ const Seniors = () => {
         },
     ];
 
-    // Age category options for checkbox group
     const ageCategoryOptions = [
+        { label: 'Sexagenarians (60-69)', value: 'sexagenarians' },
+        { label: 'Septuagenarians (70-79)', value: 'septuagenarians' },
         { label: 'Octogenarians (80-89)', value: 'octogenarians' },
         { label: 'Nonagenarians (90-99)', value: 'nonagenarians' },
         { label: 'Centenarians (100+)', value: 'centenarians' },
