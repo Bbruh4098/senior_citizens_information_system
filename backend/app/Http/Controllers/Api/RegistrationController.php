@@ -9,6 +9,8 @@ use App\Models\Barangay;
 use App\Models\Gender;
 use App\Models\SeniorCitizen;
 use App\Models\Contact;
+use App\Models\EducationalAttainment;
+use App\Models\CivilStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -288,6 +290,12 @@ class RegistrationController extends Controller
             
             $applicationNumber = sprintf('APP-%s-%05d', $year, $nextNumber);
 
+            // Resolve lookup names for display
+            $genderName = $request->gender_id == 1 ? 'Male' : ($request->gender_id == 2 ? 'Female' : null);
+            $civilStatusName = $request->civil_status_id ? CivilStatus::find($request->civil_status_id)?->name : null;
+            $barangayName = $request->barangay_id ? Barangay::find($request->barangay_id)?->name : null;
+            $educAttainName = $request->educational_attainment_id ? EducationalAttainment::find($request->educational_attainment_id)?->level : null;
+
             // Build applicant_data JSON (stores all form data with capitalized names)
             $applicantData = [
                 'personal_info' => [
@@ -297,8 +305,11 @@ class RegistrationController extends Controller
                     'extension' => $extension,
                     'birthdate' => $request->birthdate,
                     'gender_id' => $request->gender_id,
+                    'gender_name' => $genderName,
                     'civil_status_id' => $request->civil_status_id,
+                    'civil_status_name' => $civilStatusName,
                     'barangay_id' => $request->barangay_id,
+                    'barangay_name' => $barangayName,
                 ],
                 'contact_info' => [
                     'house_number' => $request->house_number,
@@ -309,6 +320,7 @@ class RegistrationController extends Controller
                 ],
                 'background_info' => [
                     'educational_attainment_id' => $request->educational_attainment_id,
+                    'educational_attainment_name' => $educAttainName,
                     'monthly_salary' => $request->monthly_salary,
                     'occupation' => $request->occupation,
                     'other_skills' => $request->other_skills,
@@ -630,7 +642,7 @@ class RegistrationController extends Controller
             })
             ->where('is_active', true)
             ->where('is_deceased', false)
-            ->with('barangay')
+            ->with(['barangay', 'contact'])
             ->limit(10)
             ->get();
 
@@ -646,6 +658,10 @@ class RegistrationController extends Controller
                 'birthdate' => $senior->birthdate?->format('Y-m-d'),
                 'age' => $senior->age,
                 'barangay' => $senior->barangay?->name,
+                'monthly_salary' => $senior->monthly_salary,
+                'mobile_number' => $senior->contact?->mobile_number,
+                'telephone_number' => $senior->contact?->telephone_number,
+                'email' => $senior->contact?->email,
             ];
         });
 

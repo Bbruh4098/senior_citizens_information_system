@@ -8,6 +8,8 @@ use App\Models\PreRegistration;
 use App\Models\SeniorCitizen;
 use App\Models\IdPrintingQueue;
 use App\Models\BenefitClaim;
+use App\Models\EducationalAttainment;
+use App\Models\CivilStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -169,6 +171,12 @@ class PublicController extends Controller
             ], 409);
         }
 
+        // Resolve lookup names for display
+        $genderName = $request->gender_id == 1 ? 'Male' : ($request->gender_id == 2 ? 'Female' : null);
+        $civilStatusName = $request->civil_status_id ? CivilStatus::find($request->civil_status_id)?->name : null;
+        $barangayName = $request->barangay_id ? Barangay::find($request->barangay_id)?->name : null;
+        $educAttainName = $request->educational_attainment_id ? EducationalAttainment::find($request->educational_attainment_id)?->level : null;
+
         // Create pre-registration with expanded data structure
         $preRegistration = PreRegistration::create([
             'reference_number' => PreRegistration::generateReferenceNumber(),
@@ -181,7 +189,10 @@ class PublicController extends Controller
                 'extension' => $request->extension,
                 'birthdate' => $request->birthdate,
                 'gender_id' => $request->gender_id,
+                'gender_name' => $genderName,
                 'civil_status_id' => $request->civil_status_id,
+                'civil_status_name' => $civilStatusName,
+                'barangay_name' => $barangayName,
                 // Address
                 'house_number' => $request->house_number,
                 'street' => $request->street,
@@ -191,6 +202,7 @@ class PublicController extends Controller
                 'email' => $request->email,
                 // Background
                 'educational_attainment_id' => $request->educational_attainment_id,
+                'educational_attainment_name' => $educAttainName,
                 'monthly_salary' => $request->monthly_salary,
                 'occupation' => $request->occupation,
                 'other_skills' => $request->other_skills,

@@ -168,7 +168,10 @@ const Apply = () => {
     const handleNext = async () => {
         try {
             const values = await form.validateFields();
-            setFormData({ ...formData, ...values });
+            const definedValues = Object.fromEntries(
+                Object.entries(values).filter(([, v]) => v !== undefined)
+            );
+            setFormData({ ...formData, ...definedValues });
 
             // Validate family member required fields
             if (currentStep === 1 && familyMembers.length > 0) {
@@ -192,7 +195,10 @@ const Apply = () => {
     const handlePrev = () => {
         // Save current values before going back
         const values = form.getFieldsValue();
-        setFormData({ ...formData, ...values });
+        const definedValues = Object.fromEntries(
+            Object.entries(values).filter(([, v]) => v !== undefined)
+        );
+        setFormData({ ...formData, ...definedValues });
         setCurrentStep(currentStep - 1);
     };
 

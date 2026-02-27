@@ -176,7 +176,7 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                     {senior?.civil_status?.name || '-'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Educational Attainment" span={2}>
-                    {senior?.educational_attainment?.name || '-'}
+                    {senior?.educational_attainment?.level || '-'}
                 </Descriptions.Item>
             </Descriptions>
         </Card>

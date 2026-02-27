@@ -299,7 +299,7 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
             <Card size="small" title="Background Information">
                 <Descriptions column={2} size="small" bordered>
                     <Descriptions.Item label="Educational Attainment">
-                        <FieldStatus value={backgroundInfo.educational_attainment_name || (backgroundInfo.educational_attainment_id ? `ID: ${backgroundInfo.educational_attainment_id}` : null)} label="Educational Attainment" optional />
+                        <FieldStatus value={backgroundInfo.educational_attainment_name} label="Educational Attainment" optional />
                     </Descriptions.Item>
                     <Descriptions.Item label="Monthly Salary">
                         <FieldStatus value={backgroundInfo.monthly_salary ? `₱${Number(backgroundInfo.monthly_salary).toLocaleString()}` : null} label="Monthly Salary" optional />
@@ -329,7 +329,7 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                             title: 'Name',
                             key: 'name',
                             fixed: 'left',
-                            width: 180,
+                            width: 200,
                             render: (_, record) => {
                                 const parts = [
                                     record.first_name,
@@ -337,7 +337,17 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                                     record.last_name,
                                     record.extension,
                                 ].filter(Boolean);
-                                return parts.join(' ') || '-';
+                                const name = parts.join(' ') || '-';
+                                return (
+                                    <div>
+                                        <div>{name}</div>
+                                        {record.matched_senior && (
+                                            <Tag color="green" style={{ fontSize: 11, marginTop: 2 }}>
+                                                <CheckCircleOutlined /> Registered: {record.matched_senior.osca_id}
+                                            </Tag>
+                                        )}
+                                    </div>
+                                );
                             },
                         },
                         { title: 'Relationship', dataIndex: 'relationship', key: 'relationship', width: 110, render: (val) => val || '-' },

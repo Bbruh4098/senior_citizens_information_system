@@ -517,6 +517,10 @@ const NewApplication = () => {
                 extension: senior.extension || '',
                 birthdate: senior.birthdate,
                 age: senior.age,
+                monthly_salary: senior.monthly_salary || '',
+                mobile_number: senior.mobile_number || '',
+                telephone_number: senior.telephone_number || '',
+                email: senior.email || '',
                 searchResults: [],
                 searchQuery: '',
             };
@@ -594,7 +598,12 @@ const NewApplication = () => {
     const handleSubmit = async (saveAsDraft = false) => {
         try {
             // Validate required fields first (first step fields are always required)
-            const allData = { ...formData, ...form.getFieldsValue() };
+            // Filter out undefined values from current step's form to avoid overwriting saved data from other steps
+            const currentValues = form.getFieldsValue();
+            const definedValues = Object.fromEntries(
+                Object.entries(currentValues).filter(([, v]) => v !== undefined)
+            );
+            const allData = { ...formData, ...definedValues };
 
             // Check required fields
             const missingFields = [];
@@ -1063,6 +1072,22 @@ const NewApplication = () => {
                                 />
                             }
                         >
+                            {/* Matched Senior Indicator */}
+                            {member.matched_senior && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    icon={<CheckCircleOutlined />}
+                                    message={
+                                        <span>
+                                            This person is a registered senior:{' '}
+                                            <strong>{member.matched_senior.full_name} ({member.matched_senior.osca_id})</strong>
+                                            {member.matched_senior.barangay && ` · ${member.matched_senior.barangay}`}
+                                        </span>
+                                    }
+                                    style={{ marginBottom: 12 }}
+                                />
+                            )}
                             {/* Senior Search */}
                             <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f0f5ff', borderRadius: 8, border: '1px dashed #adc6ff' }}>
                                 <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Search registered senior to auto-fill:</Text>

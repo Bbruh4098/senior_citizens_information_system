@@ -149,6 +149,51 @@ class ApplicationController extends Controller
             $data['applicant_data']['personal_info']['barangay_name'] = $application->senior->barangay->name;
         }
 
+        // Always resolve educational_attainment_name from background_info
+        if ($application->applicant_data) {
+            $background = $application->applicant_data['background_info'] ?? [];
+            if (isset($background['educational_attainment_id']) && !isset($data['applicant_data']['background_info']['educational_attainment_name'])) {
+                $ea = \App\Models\EducationalAttainment::find($background['educational_attainment_id']);
+                if (!isset($data['applicant_data']['background_info'])) {
+                    $data['applicant_data']['background_info'] = $background;
+                }
+                $data['applicant_data']['background_info']['educational_attainment_name'] = $ea ? $ea->level : null;
+            }
+        }
+
+        // Auto-match family members to registered seniors (admin-side enrichment)
+        if ($application->applicant_data && !empty($data['applicant_data']['family_members'])) {
+            $familyMembers = $data['applicant_data']['family_members'];
+            foreach ($familyMembers as $index => $member) {
+                $firstName = strtolower(trim($member['first_name'] ?? ''));
+                $lastName = strtolower(trim($member['last_name'] ?? ''));
+                $birthdate = $member['birthdate'] ?? null;
+
+                if ($firstName && $lastName) {
+                    $query = SeniorCitizen::whereRaw('LOWER(TRIM(first_name)) = ?', [$firstName])
+                        ->whereRaw('LOWER(TRIM(last_name)) = ?', [$lastName])
+                        ->where('is_active', true);
+
+                    if ($birthdate) {
+                        $query->whereDate('birthdate', $birthdate);
+                    }
+
+                    $match = $query->with('barangay')->first();
+
+                    if ($match) {
+                        $familyMembers[$index]['matched_senior'] = [
+                            'id' => $match->id,
+                            'osca_id' => $match->osca_id,
+                            'full_name' => $match->full_name,
+                            'barangay' => $match->barangay?->name,
+                            'birthdate' => $match->birthdate?->format('Y-m-d'),
+                        ];
+                    }
+                }
+            }
+            $data['applicant_data']['family_members'] = $familyMembers;
+        }
+
         return response()->json([
             'success' => true,
             'data' => $data,
