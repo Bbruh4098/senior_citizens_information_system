@@ -183,56 +183,95 @@ class SeniorController extends Controller
     }
 
     /**
-     * Export seniors to CSV.
+     * Export seniors to Excel with letterhead.
      */
     public function export(Request $request)
     {
         $user = $request->user();
         
-        $seniors = SeniorCitizen::with(['barangay', 'gender'])
-            ->accessibleBy($user)
-            ->active()
-            ->get();
+        $query = SeniorCitizen::with(['barangay', 'gender'])
+            ->accessibleBy($user);
+
+        // Apply same filters as index
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('osca_id', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($barangayId = $request->get('barangay_id')) {
+            $query->where('barangay_id', $barangayId);
+        }
+
+        if ($status = $request->get('status')) {
+            if ($status === 'active') {
+                $query->where('is_active', true)->where('is_deceased', false);
+            } elseif ($status === 'inactive') {
+                $query->where('is_active', false);
+            } elseif ($status === 'deceased') {
+                $query->where('is_deceased', true);
+            }
+        }
+
+        if ($ageCategories = $request->get('age_categories')) {
+            $categories = is_array($ageCategories) ? $ageCategories : explode(',', $ageCategories);
+            $query->where(function ($q) use ($categories) {
+                foreach ($categories as $category) {
+                    $category = trim($category);
+                    match ($category) {
+                        'sexagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69'),
+                        'septuagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79'),
+                        'octogenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89'),
+                        'nonagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99'),
+                        'centenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100'),
+                        default => null,
+                    };
+                }
+            });
+        }
+
+        // Age range filter
+        if ($minAge = $request->get('min_age')) {
+            $maxDate = now()->subYears($minAge)->format('Y-m-d');
+            $query->where('birthdate', '<=', $maxDate);
+        }
+        if ($maxAge = $request->get('max_age')) {
+            $minDate = now()->subYears($maxAge + 1)->format('Y-m-d');
+            $query->where('birthdate', '>', $minDate);
+        }
+
+        $seniors = $query->get();
 
         $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="seniors_export_' . date('Y-m-d') . '.csv"',
+            'OSCA ID', 'Last Name', 'First Name', 'Middle Name', 'M.I.',
+            'Birthdate', 'Age', 'Gender', 'Barangay', 'Status',
         ];
 
-        $callback = function () use ($seniors) {
-            $file = fopen('php://output', 'w');
-            
-            // Header row
-            fputcsv($file, [
-                'OSCA ID',
-                'Last Name',
-                'First Name',
-                'Middle Name',
-                'Birthdate',
-                'Age',
-                'Gender',
-                'Barangay',
-                'Contact Number',
-            ]);
+        $data = $seniors->map(fn($s) => [
+            $s->osca_id,
+            $s->last_name,
+            $s->first_name,
+            $s->middle_name ?? '',
+            $s->middle_name ? strtoupper(substr($s->middle_name, 0, 1)) . '.' : '',
+            $s->birthdate?->format('m/d/Y'),
+            $s->age,
+            $s->gender->name ?? '',
+            $s->barangay->name ?? '',
+            $s->is_active ? 'Active' : 'Inactive',
+        ])->toArray();
 
-            foreach ($seniors as $senior) {
-                fputcsv($file, [
-                    $senior->osca_id,
-                    $senior->last_name,
-                    $senior->first_name,
-                    $senior->middle_name,
-                    $senior->birthdate?->format('Y-m-d'),
-                    $senior->age,
-                    $senior->gender->name ?? '',
-                    $senior->barangay->name ?? '',
-                    $senior->contact->mobile_number ?? '',
-                ]);
-            }
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            'List of Registered Senior Citizens',
+            $headers,
+            $data,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
 
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return $excelService->download('seniors_export_' . date('Y-m-d') . '.xlsx');
     }
 
     /**

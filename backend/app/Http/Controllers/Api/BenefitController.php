@@ -100,7 +100,6 @@ class BenefitController extends Controller
         $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor'])
             ->accessibleBy($user);
 
-        // Apply same filters as index
         if ($status = $request->get('status')) {
             $query->status($status);
         }
@@ -125,29 +124,33 @@ class BenefitController extends Controller
 
         $claims = $query->orderBy('created_at', 'desc')->get();
 
-        // Build CSV content
-        $csv = "OSCA ID,Senior Name,Barangay,Benefit Type,Amount,Year,Status,Date Filed,Released At\n";
-        
-        foreach ($claims as $claim) {
-            $senior = $claim->senior;
-            $csv .= implode(',', [
-                $senior?->osca_id ?? '',
-                '"' . ($senior?->full_name ?? $senior?->first_name . ' ' . $senior?->last_name) . '"',
-                '"' . ($senior?->barangay?->name ?? '') . '"',
-                '"' . ($claim->benefitType?->name ?? '') . '"',
-                $claim->amount,
-                $claim->claim_year,
-                $claim->status,
-                $claim->created_at->format('Y-m-d'),
-                $claim->released_at?->format('Y-m-d') ?? '',
-            ]) . "\n";
-        }
+        $headers = [
+            'OSCA ID', 'Senior Name', 'Barangay', 'Benefit Type',
+            'Amount', 'Year', 'Status', 'Date Filed', 'Released At',
+        ];
 
-        $filename = 'benefits_claims_' . ($request->get('year') ?? $currentYear) . '_' . now()->format('Ymd_His') . '.csv';
+        $data = $claims->map(fn($c) => [
+            $c->senior?->osca_id ?? '',
+            $c->senior?->full_name ?? ($c->senior?->first_name . ' ' . $c->senior?->last_name),
+            $c->senior?->barangay?->name ?? '',
+            $c->benefitType?->name ?? '',
+            number_format($c->amount, 2),
+            $c->claim_year,
+            ucfirst($c->status),
+            $c->created_at->format('m/d/Y'),
+            $c->released_at?->format('m/d/Y') ?? '',
+        ])->toArray();
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
+        $year = $request->get('year') ?? $currentYear;
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            "Benefit Claims Report - Year {$year}",
+            $headers,
+            $data,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
+
+        return $excelService->download('benefit_claims_' . $year . '_' . now()->format('Ymd_His') . '.xlsx');
     }
 
     // Get seniors eligible for benefits they haven't claimed yet.
@@ -263,7 +266,6 @@ class BenefitController extends Controller
         $user = $request->user();
         $currentYear = now()->year;
 
-        // Get benefit types (optionally filtered)
         $benefitTypesQuery = BenefitType::active()->where('amount', '>', 0)->orderBy('min_age');
         
         $filterTypeId = $request->get('benefit_type_id');
@@ -274,7 +276,6 @@ class BenefitController extends Controller
         $benefitTypes = $benefitTypesQuery->get();
         $search = $request->get('search');
 
-        // Build data for export
         $eligibleSeniors = [];
 
         foreach ($benefitTypes as $benefitType) {
@@ -313,46 +314,38 @@ class BenefitController extends Controller
                 ->get();
 
             foreach ($seniors as $senior) {
-                // Check target scope eligibility (district, branch, barangays)
                 if ($senior->barangay_id && !$benefitType->isEligibleForBarangay($senior->barangay_id)) {
                     continue;
                 }
 
-                // Check association eligibility (target sectors / sub-categories)
                 if (!$benefitType->isEligibleForAssociation($senior)) {
                     continue;
                 }
 
                 $eligibleSeniors[] = [
-                    'osca_id' => $senior->osca_id,
-                    'full_name' => $senior->full_name ?? "{$senior->first_name} {$senior->last_name}",
-                    'age' => $senior->age,
-                    'barangay' => $senior->barangay?->name,
-                    'benefit_name' => $benefitType->name,
-                    'benefit_amount' => $benefitType->amount,
+                    $senior->osca_id,
+                    $senior->full_name ?? "{$senior->first_name} {$senior->last_name}",
+                    $senior->age,
+                    $senior->barangay?->name ?? '',
+                    $benefitType->name,
+                    number_format($benefitType->amount, 2),
                 ];
             }
         }
 
-        // Build CSV
-        $csv = "OSCA ID,Senior Name,Age,Barangay,Eligible Benefit,Amount\n";
-        
-        foreach ($eligibleSeniors as $row) {
-            $csv .= implode(',', [
-                $row['osca_id'] ?? '',
-                '"' . $row['full_name'] . '"',
-                $row['age'],
-                '"' . ($row['barangay'] ?? '') . '"',
-                '"' . $row['benefit_name'] . '"',
-                $row['benefit_amount'],
-            ]) . "\n";
-        }
+        $headers = [
+            'OSCA ID', 'Senior Name', 'Age', 'Barangay', 'Eligible Benefit', 'Amount',
+        ];
 
-        $filename = 'eligible_seniors_' . now()->format('Ymd_His') . '.csv';
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            'Eligible Seniors Report',
+            $headers,
+            $eligibleSeniors,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
+        return $excelService->download('eligible_seniors_' . now()->format('Ymd_His') . '.xlsx');
     }
 
     // Get dashboard statistics for benefits.

@@ -149,11 +149,17 @@ const Seniors = () => {
 
     const handleExport = async () => {
         try {
-            const response = await seniorsApi.export();
+            const params = {
+                search: filters.search || undefined,
+                status: filters.status || undefined,
+                barangay_id: filters.barangay_id || undefined,
+                age_categories: filters.age_categories.length > 0 ? filters.age_categories.join(',') : undefined,
+            };
+            const response = await seniorsApi.export(params);
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `seniors_export_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', `seniors_export_${new Date().toISOString().split('T')[0]}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -421,7 +427,7 @@ const Seniors = () => {
                                 icon={<DownloadOutlined />}
                                 onClick={handleExport}
                             >
-                                Export CSV
+                                Export Excel
                             </Button>
                             <Button
                                 type="primary"
