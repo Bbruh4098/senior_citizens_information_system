@@ -194,4 +194,105 @@ class DashboardController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Get heatmap data - per-barangay demographic breakdowns.
+     */
+    public function heatmapData(Request $request)
+    {
+        $user = $request->user();
+        $barangayIds = $user->getAccessibleBarangayIds();
+
+        // Get all barangay info
+        $barangays = DB::table('barangays')
+            ->select('id', 'code', 'name', 'district')
+            ->when(!$user->isMainAdmin(), function ($q) use ($barangayIds) {
+                $q->whereIn('id', $barangayIds);
+            })
+            ->get()
+            ->keyBy('id');
+
+        // Base query conditions
+        $baseConditions = function ($q) use ($user, $barangayIds) {
+            $q->where('is_active', true)
+              ->where('is_deceased', false)
+              ->when(!$user->isMainAdmin(), function ($sq) use ($barangayIds) {
+                  $sq->whereIn('barangay_id', $barangayIds);
+              });
+        };
+
+        // Total count per barangay
+        $totals = DB::table('senior_citizens')
+            ->select('barangay_id', DB::raw('COUNT(*) as total'))
+            ->where($baseConditions)
+            ->groupBy('barangay_id')
+            ->pluck('total', 'barangay_id');
+
+        // Male count per barangay (gender_id = 1)
+        $males = DB::table('senior_citizens')
+            ->select('barangay_id', DB::raw('COUNT(*) as count'))
+            ->where($baseConditions)
+            ->where('gender_id', 1)
+            ->groupBy('barangay_id')
+            ->pluck('count', 'barangay_id');
+
+        // Female count per barangay (gender_id = 2)
+        $females = DB::table('senior_citizens')
+            ->select('barangay_id', DB::raw('COUNT(*) as count'))
+            ->where($baseConditions)
+            ->where('gender_id', 2)
+            ->groupBy('barangay_id')
+            ->pluck('count', 'barangay_id');
+
+        // Age groups per barangay
+        $ageGroups = DB::table('senior_citizens')
+            ->select(
+                'barangay_id',
+                DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69 THEN 1 ELSE 0 END) as age_60_69'),
+                DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79 THEN 1 ELSE 0 END) as age_70_79'),
+                DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89 THEN 1 ELSE 0 END) as age_80_89'),
+                DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99 THEN 1 ELSE 0 END) as age_90_99'),
+                DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100 THEN 1 ELSE 0 END) as centenarian')
+            )
+            ->where($baseConditions)
+            ->groupBy('barangay_id')
+            ->get()
+            ->keyBy('barangay_id');
+
+        // Build distribution array
+        $distribution = [];
+        foreach ($barangays as $id => $brgy) {
+            $ages = $ageGroups->get($id);
+            $distribution[] = [
+                'barangay_id' => $id,
+                'name' => $brgy->name,
+                'district' => $brgy->district,
+                'total' => (int) ($totals->get($id, 0)),
+                'male' => (int) ($males->get($id, 0)),
+                'female' => (int) ($females->get($id, 0)),
+                'age_60_69' => (int) ($ages->age_60_69 ?? 0),
+                'age_70_79' => (int) ($ages->age_70_79 ?? 0),
+                'age_80_89' => (int) ($ages->age_80_89 ?? 0),
+                'age_90_99' => (int) ($ages->age_90_99 ?? 0),
+                'centenarian' => (int) ($ages->centenarian ?? 0),
+            ];
+        }
+
+        // Compute summary totals
+        $summaryTotals = [
+            'total' => array_sum(array_column($distribution, 'total')),
+            'male' => array_sum(array_column($distribution, 'male')),
+            'female' => array_sum(array_column($distribution, 'female')),
+            'centenarian' => array_sum(array_column($distribution, 'centenarian')),
+            'max_count' => max(array_column($distribution, 'total') ?: [0]),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'distribution' => $distribution,
+                'totals' => $summaryTotals,
+            ],
+        ]);
+    }
 }

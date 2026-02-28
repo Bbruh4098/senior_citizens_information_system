@@ -69,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/upcoming-events', [DashboardController::class, 'upcomingEvents']);
     Route::get('/dashboard/age-distribution', [DashboardController::class, 'ageDistribution']);
     Route::get('/dashboard/gender-distribution', [DashboardController::class, 'genderDistribution']);
+    Route::get('/dashboard/heatmap', [DashboardController::class, 'heatmapData']);
 
     // Seniors
     Route::get('/seniors', [SeniorController::class, 'index']);

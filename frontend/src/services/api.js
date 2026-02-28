@@ -52,6 +52,8 @@ export const dashboardApi = {
   getAgeDistribution: () => api.get('/dashboard/age-distribution'),
 
   getGenderDistribution: () => api.get('/dashboard/gender-distribution'),
+
+  getHeatmapData: () => api.get('/dashboard/heatmap'),
 };
 
 // Seniors API
@@ -62,7 +64,7 @@ export const seniorsApi = {
 
   getStatistics: () => api.get('/seniors/statistics'),
 
-  export: () => api.get('/seniors/export', { responseType: 'blob' }),
+  export: (params) => api.get('/seniors/export', { params, responseType: 'blob' }),
 
   update: (id, data) => api.put(`/seniors/${id}`, data),
 };

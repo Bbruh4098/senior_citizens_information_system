@@ -31,6 +31,7 @@ import DataManagement from "./pages/admin/DataManagement";
 import SmsSettings from "./pages/admin/SmsSettings";
 import Announcements from "./pages/Announcements";
 import Archives from "./pages/Archives";
+import Heatmap from "./pages/Heatmap";
 
 // Public Pages
 import Home from "./pages/public/Home";
@@ -144,7 +145,7 @@ function App() {
                 <Route path="archives" element={<Archives />} />
                 <Route
                   path="heatmap"
-                  element={<ComingSoon title="Heat Map" />}
+                  element={<Heatmap />}
                 />
                 <Route
                   path="accounts"
