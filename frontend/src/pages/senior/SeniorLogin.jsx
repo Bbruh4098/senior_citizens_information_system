@@ -21,7 +21,7 @@ const SeniorLogin = () => {
     const [loginMode, setLoginMode] = useState('otp'); // 'otp' or 'pin'
     const [seniorId, setSeniorId] = useState(null);
     const [needsPinSetup, setNeedsPinSetup] = useState(false);
-    const [devOtp, setDevOtp] = useState(null);
+
     const [smsSent, setSmsSent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [lastOtpValues, setLastOtpValues] = useState(null);
@@ -44,16 +44,11 @@ const SeniorLogin = () => {
         try {
             const response = await axios.post(`${API_URL}/senior/request-otp`, values);
             setSeniorId(response.data.senior_id);
-            setDevOtp(response.data.dev_otp); // Shown in dev mode or when SMS fails
-            setSmsSent(response.data.sms_sent || false);
+            setSmsSent(true);
             setLastOtpValues(values);
             setStep(1);
             setResendCooldown(60);
-            if (response.data.sms_sent) {
-                message.success('OTP sent to your phone number via SMS');
-            } else {
-                message.info(response.data.message || 'OTP generated');
-            }
+            message.success('OTP sent to your phone number via SMS');
         } catch (error) {
             const msg = error.response?.data?.message || 'Failed to send OTP';
             if (error.response?.status === 429) {

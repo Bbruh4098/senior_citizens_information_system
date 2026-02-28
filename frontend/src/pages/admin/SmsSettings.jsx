@@ -65,6 +65,7 @@ const SmsSettings = () => {
                 twilio_auth_token: d.twilio_auth_token || '',
                 twilio_phone_number: d.twilio_phone_number || '',
                 semaphore_api_key: d.semaphore_api_key || '',
+                semaphore_sender_name: d.semaphore_sender_name || '',
                 otp_message_template: d.otp_message_template || '',
                 reference_message_template: d.reference_message_template || '',
                 max_otp_per_hour: parseInt(d.max_otp_per_hour) || 3,
@@ -120,6 +121,7 @@ const SmsSettings = () => {
                 twilio_auth_token: values.twilio_auth_token,
                 twilio_phone_number: values.twilio_phone_number,
                 semaphore_api_key: values.semaphore_api_key,
+                semaphore_sender_name: values.semaphore_sender_name,
                 otp_message_template: values.otp_message_template,
                 reference_message_template: values.reference_message_template,
                 max_otp_per_hour: String(values.max_otp_per_hour),
@@ -215,8 +217,8 @@ const SmsSettings = () => {
         },
     ];
 
-    // Configuration Tab
-    const ConfigTab = () => (
+    // Configuration Tab content (plain JSX — not a component, to avoid remounting on state change)
+    const configContent = (
         <div>
             <Form form={form} layout="vertical" size="large">
                 {/* Enable/Disable */}
@@ -318,6 +320,21 @@ const SmsSettings = () => {
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="semaphore_api_key" label="API Key">
                                         <Input.Password placeholder="Your Semaphore API Key" />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} sm={12}>
+                                    <Form.Item
+                                        name="semaphore_sender_name"
+                                        label={
+                                            <span>
+                                                Sender Name{' '}
+                                                <Tooltip title="Must be registered and approved in your Semaphore dashboard">
+                                                    <InfoCircleOutlined />
+                                                </Tooltip>
+                                            </span>
+                                        }
+                                    >
+                                        <Input placeholder="e.g. OSCAZamCity" />
                                     </Form.Item>
                                 </Col>
                             </Row>
@@ -426,8 +443,8 @@ const SmsSettings = () => {
         </div>
     );
 
-    // Logs Tab
-    const LogsTab = () => (
+    // Logs Tab content
+    const logsContent = (
         <div>
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={8}>
@@ -482,8 +499,8 @@ const SmsSettings = () => {
         </div>
     );
 
-    // Statistics Tab
-    const StatsTab = () => (
+    // Statistics Tab content
+    const statsContent = (
         <div>
             {!stats ? (
                 <div style={{ textAlign: 'center', padding: 40 }}>
@@ -574,9 +591,9 @@ const SmsSettings = () => {
     );
 
     const tabItems = [
-        { key: 'config', label: <span><SettingOutlined /> Configuration</span>, children: <ConfigTab /> },
-        { key: 'logs', label: <span><MessageOutlined /> SMS Logs</span>, children: <LogsTab /> },
-        { key: 'stats', label: <span><BarChartOutlined /> Statistics</span>, children: <StatsTab /> },
+        { key: 'config', label: <span><SettingOutlined /> Configuration</span>, children: configContent },
+        { key: 'logs', label: <span><MessageOutlined /> SMS Logs</span>, children: logsContent },
+        { key: 'stats', label: <span><BarChartOutlined /> Statistics</span>, children: statsContent },
     ];
 
     return (

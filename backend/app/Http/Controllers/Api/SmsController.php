@@ -58,6 +58,7 @@ class SmsController extends Controller
             'twilio_auth_token',
             'twilio_phone_number',
             'semaphore_api_key',
+            'semaphore_sender_name',
             'globe_app_id',
             'globe_app_secret',
             'globe_shortcode',

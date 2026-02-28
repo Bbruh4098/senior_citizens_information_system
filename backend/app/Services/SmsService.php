@@ -148,15 +148,17 @@ class SmsService
         ];
     }
 
-    //Send via Semaphore (for future use)
+    //Send via Semaphore
     private function sendViaSemaphore(string $phoneNumber, string $message): array
     {
         $apiKey = SmsSetting::getValue('semaphore_api_key');
+        $senderName = SmsSetting::getValue('semaphore_sender_name', 'SEMAPHORE');
 
         $response = Http::post('https://api.semaphore.co/api/v4/messages', [
             'apikey' => $apiKey,
             'number' => $phoneNumber,
             'message' => $message,
+            'sendername' => $senderName,
         ]);
 
         $data = $response->json();
@@ -167,7 +169,7 @@ class SmsService
 
         return [
             'success' => false,
-            'error' => $data['message'] ?? $data[0]['error'] ?? $response->body(),
+            'error' => is_array($data) && isset($data[0]) ? json_encode($data[0]) : ($data['message'] ?? $response->body()),
             'response' => $data,
         ];
     }
