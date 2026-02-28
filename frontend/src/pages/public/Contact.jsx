@@ -181,6 +181,7 @@ const Contact = () => {
                                     <Form.Item
                                         name="phone"
                                         label="Phone Number"
+                                        rules={[{ required: true, message: 'Please enter your phone number' }]}
                                     >
                                         <Input size="large" placeholder="09XX XXX XXXX" style={{ borderRadius: 8 }} />
                                     </Form.Item>

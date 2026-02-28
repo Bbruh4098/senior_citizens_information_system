@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Row, Col, Card, Typography, Button, List } from 'antd';
+import { Row, Col, Card, Typography, Button, List, Tabs } from 'antd';
 import {
     IdcardOutlined,
     GiftOutlined,
@@ -19,9 +19,9 @@ const services = [
     {
         icon: <IdcardOutlined style={{ fontSize: 36 }} />,
         title: 'Senior Citizen ID Registration',
-        description: 'Get your official OSCA ID to access discounts and benefits. Valid for 3 years.',
+        description: 'Get your official OSCA ID to access discounts and benefits.',
         features: [
-            'Free registration for first-time applicants',
+            'Free registration for applicants',
             'Valid ID accepted nationwide',
             'Includes QR code for verification',
             'Replacement available for lost/damaged IDs',
@@ -66,6 +66,49 @@ const discounts = [
     { icon: <CarOutlined />, title: 'Transportation', desc: '20% discount on fares (air, sea, land)' },
     { icon: <HomeOutlined />, title: 'Utilities', desc: '5% discount on monthly water and electricity' },
     { icon: <PhoneOutlined />, title: 'Telco', desc: '5% discount on phone and internet bills' },
+];
+
+const requirementTabs = [
+    {
+        key: 'new',
+        label: 'New Applicants',
+        items: [
+            'Birth Certificate / Valid ID with Date of Birth',
+            'Barangay Certification',
+            'COMELEC ID / Certification (Optional)',
+            'Recent Picture (2x2)',
+        ],
+    },
+    {
+        key: 'renewal',
+        label: 'Renewal',
+        items: [
+            'Birth Certificate / Valid ID with Date of Birth',
+            'Barangay Certification',
+            'Recent Picture (2x2)',
+            'Photocopy of Old Senior Citizen ID Card',
+        ],
+    },
+    {
+        key: 'lost',
+        label: 'Replacement (Lost)',
+        items: [
+            'Birth Certificate / Valid ID with Date of Birth',
+            'Barangay Certification',
+            'Recent Picture (2x2)',
+            'Affidavit of Loss',
+        ],
+    },
+    {
+        key: 'damaged',
+        label: 'Replacement (Damaged)',
+        items: [
+            'Birth Certificate / Valid ID with Date of Birth',
+            'Barangay Certification',
+            'Recent Picture (2x2)',
+            'Photocopy of Damaged Senior Citizen ID Card',
+        ],
+    },
 ];
 
 const Services = () => {
@@ -170,11 +213,11 @@ const Services = () => {
                             As a registered senior citizen, you are entitled to these benefits under the law.
                         </Paragraph>
                     </div>
-                    <Row gutter={[24, 24]}>
+                    <Row gutter={[24, 24]} justify="center">
                         {discounts.map((item, index) => (
-                            <Col xs={12} sm={8} lg={4} key={index}>
+                            <Col xs={12} sm={8} lg={4} key={index} style={{ display: 'flex' }}>
                                 <Card
-                                    style={{ textAlign: 'center', borderRadius: 12, height: '100%' }}
+                                    style={{ textAlign: 'center', borderRadius: 12, width: '100%' }}
                                     bodyStyle={{ padding: 20 }}
                                 >
                                     <div style={{
@@ -207,42 +250,24 @@ const Services = () => {
                         <Title level={2}>Requirements for ID Application</Title>
                     </div>
                     <Card style={{ borderRadius: 16, background: '#fafafa' }}>
-                        <Row gutter={[32, 16]}>
-                            <Col xs={24} md={12}>
-                                <Title level={5} style={{ color: '#4338ca' }}>New Applicants</Title>
-                                <List
-                                    dataSource={[
-                                        'Birth Certificate (PSA/NSO)',
-                                        'Barangay Certificate',
-                                        'Valid Government ID',
-                                        '1x1 or 2x2 Photo (recent)',
-                                    ]}
-                                    renderItem={(item) => (
-                                        <List.Item style={{ border: 'none', padding: '4px 0' }}>
-                                            <CheckCircleOutlined style={{ color: '#059669', marginRight: 8 }} />
-                                            {item}
-                                        </List.Item>
-                                    )}
-                                />
-                            </Col>
-                            <Col xs={24} md={12}>
-                                <Title level={5} style={{ color: '#4338ca' }}>Replacement (Lost/Damaged)</Title>
-                                <List
-                                    dataSource={[
-                                        'Affidavit of Loss',
-                                        'Valid Government ID',
-                                        'Processing Fee: ₱50',
-                                        '1x1 or 2x2 Photo (recent)',
-                                    ]}
-                                    renderItem={(item) => (
-                                        <List.Item style={{ border: 'none', padding: '4px 0' }}>
-                                            <CheckCircleOutlined style={{ color: '#059669', marginRight: 8 }} />
-                                            {item}
-                                        </List.Item>
-                                    )}
-                                />
-                            </Col>
-                        </Row>
+                        <Tabs
+                            centered
+                            items={requirementTabs.map(tab => ({
+                                key: tab.key,
+                                label: tab.label,
+                                children: (
+                                    <List
+                                        dataSource={tab.items}
+                                        renderItem={(item) => (
+                                            <List.Item style={{ border: 'none', padding: '6px 0' }}>
+                                                <CheckCircleOutlined style={{ color: '#059669', marginRight: 8 }} />
+                                                {item}
+                                            </List.Item>
+                                        )}
+                                    />
+                                ),
+                            }))}
+                        />
                     </Card>
                 </div>
             </section>
