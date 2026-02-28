@@ -1,15 +1,26 @@
-import { Row, Col, Card, Typography, Timeline } from 'antd';
+import { useState, useEffect } from 'react';
+import { Row, Col, Card, Typography, Timeline, Spin } from 'antd';
 import {
     TeamOutlined,
     HeartOutlined,
     SafetyCertificateOutlined,
     TrophyOutlined,
     CheckCircleOutlined,
+    AimOutlined,
 } from '@ant-design/icons';
+import { publicApi } from '../../services/api';
 
 const { Title, Paragraph, Text } = Typography;
 
 const About = () => {
+    const [stats, setStats] = useState(null);
+
+    useEffect(() => {
+        publicApi.getStats()
+            .then(res => setStats(res.data?.data))
+            .catch(() => { });
+    }, []);
+
     return (
         <div>
             {/* Hero */}
@@ -36,25 +47,24 @@ const About = () => {
                             <Card style={{
                                 height: '100%',
                                 borderRadius: 16,
-                                border: '2px solid #4338ca',
+                                background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
                             }}>
                                 <div style={{
                                     width: 56,
                                     height: 56,
-                                    background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
+                                    background: 'rgba(255,255,255,0.2)',
                                     borderRadius: 12,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     marginBottom: 20,
                                 }}>
-                                    <TrophyOutlined style={{ fontSize: 28, color: 'white' }} />
+                                    <HeartOutlined style={{ fontSize: 28, color: 'white' }} />
                                 </div>
-                                <Title level={3} style={{ color: '#4338ca' }}>Our Mission</Title>
-                                <Paragraph style={{ fontSize: 16, lineHeight: 1.8, color: '#4b5563' }}>
-                                    To ensure that senior citizens in Zamboanga City are given the proper care,
-                                    protection, and privileges they deserve, promoting their active participation
-                                    in nation-building and securing their rightful place in society.
+                                <Title level={3} style={{ color: 'white' }}>Our Vision</Title>
+                                <Paragraph style={{ fontSize: 16, lineHeight: 1.8, color: 'rgba(255,255,255,0.9)' }}>
+                                    A facility that recognizes and honor the significant contributions of older persons
+                                    through the promotion of socio-cultural & recreational activities and other welfare programs.
                                 </Paragraph>
                             </Card>
                         </Col>
@@ -74,17 +84,47 @@ const About = () => {
                                     justifyContent: 'center',
                                     marginBottom: 20,
                                 }}>
-                                    <HeartOutlined style={{ fontSize: 28, color: 'white' }} />
+                                    <TrophyOutlined style={{ fontSize: 28, color: 'white' }} />
                                 </div>
-                                <Title level={3} style={{ color: 'white' }}>Our Vision</Title>
-                                <Paragraph style={{ fontSize: 16, lineHeight: 1.8, color: 'rgba(255,255,255,0.9)' }}>
-                                    A society where every senior citizen lives with dignity, respect,
-                                    and security—fully enjoying the rights and privileges granted by law
-                                    while remaining active and valued members of the community.
-                                </Paragraph>
+                                <Title level={3} style={{ color: 'white' }}>Our Mission</Title>
+                                <div style={{ fontSize: 15, lineHeight: 1.8, color: 'rgba(255,255,255,0.9)' }}>
+                                    <ol style={{ paddingLeft: 20, margin: 0 }}>
+                                        <li style={{ marginBottom: 8 }}>To strengthen the social & spiritual well-being, to advocate the rights & welfare of older persons and to promote healthy ageing.</li>
+                                        <li style={{ marginBottom: 8 }}>To enhance the capabilities of the older persons through leadership example for a sustained people's participation towards self-management.</li>
+                                        <li>To promote advocacy activities towards creating better understanding among sectors of society with their resources and environment in the quest for sustainable development.</li>
+                                    </ol>
+                                </div>
                             </Card>
                         </Col>
                     </Row>
+
+                    {/* Goal */}
+                    <div style={{ marginTop: 48, maxWidth: 800, margin: '48px auto 0' }}>
+                        <Card style={{
+                            borderRadius: 16,
+                            background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                            textAlign: 'center',
+                        }}>
+                            <div style={{
+                                width: 56,
+                                height: 56,
+                                background: 'rgba(255,255,255,0.2)',
+                                borderRadius: 12,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 20px',
+                            }}>
+                                <AimOutlined style={{ fontSize: 28, color: 'white' }} />
+                            </div>
+                            <Title level={3} style={{ color: 'white' }}>Our Goal</Title>
+                            <Paragraph style={{ fontSize: 16, lineHeight: 1.8, color: 'rgba(255,255,255,0.9)', maxWidth: 600, margin: '0 auto' }}>
+                                To maximize the participation of senior citizens in nation building through
+                                partnership with the government and civil society in the upliftment of the
+                                quality of life of older persons.
+                            </Paragraph>
+                        </Card>
+                    </div>
                 </div>
             </section>
 
@@ -154,7 +194,7 @@ const About = () => {
                                 children: <><strong>RA 9994</strong> - Expanded benefits including 20% discount and VAT exemption on medicines.</>,
                             },
                             {
-                                label: '2025',
+                                label: '2026',
                                 children: <><strong>SCIS Launch</strong> - Senior Citizens Information System digitized registration and benefits tracking.</>,
                             },
                         ]}
@@ -167,8 +207,8 @@ const About = () => {
                 <div style={{ maxWidth: 1000, margin: '0 auto' }}>
                     <Row gutter={[48, 32]} style={{ textAlign: 'center' }}>
                         {[
-                            { value: '24,567+', label: 'Registered Seniors' },
-                            { value: '98', label: 'Barangays Covered' },
+                            { value: stats ? `${stats.registered_seniors?.toLocaleString()}+` : '...', label: 'Registered Seniors' },
+                            { value: stats ? `${stats.barangays_covered}` : '...', label: 'Barangays Covered' },
                             { value: '10+', label: 'Years of Service' },
                             { value: '100%', label: 'Commitment' },
                         ].map((stat, index) => (

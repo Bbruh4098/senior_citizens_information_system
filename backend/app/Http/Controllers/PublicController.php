@@ -35,11 +35,15 @@ class PublicController extends Controller
         // Total benefits released (only count Released status)
         $totalBenefitsReleased = BenefitClaim::where('status', 'Released')->count();
         
+        // Count distinct barangays with registered seniors
+        $barangaysCovered = SeniorCitizen::distinct('barangay_id')->count('barangay_id');
+        
         return response()->json([
             'data' => [
                 'registered_seniors' => $totalSeniors,
                 'ids_issued_this_year' => $idsIssuedThisYear,
                 'benefits_claimed' => $totalBenefitsReleased,
+                'barangays_covered' => $barangaysCovered,
             ]
         ]);
     }

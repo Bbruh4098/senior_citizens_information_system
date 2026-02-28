@@ -229,6 +229,8 @@ export const publicApi = {
 
   checkStatus: (referenceNumber) =>
     api.get(`/public/status/${referenceNumber}`),
+
+  getStats: () => api.get('/public/stats'),
 };
 
 // Pre-Registration Admin API

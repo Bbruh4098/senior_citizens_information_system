@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Row, Col, Card, Typography, Form, Input, Select, DatePicker, Button, Steps, Result, message, Divider, Spin, InputNumber, Tag } from 'antd';
+import { Row, Col, Card, Typography, Form, Input, Select, DatePicker, Button, Steps, Result, message, Divider, Spin, InputNumber, Tag, Checkbox } from 'antd';
 import {
     UserOutlined,
     UsergroupAddOutlined,
@@ -12,6 +12,7 @@ import {
     SearchOutlined,
     PlusOutlined,
     DeleteOutlined,
+    SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { publicApi } from '../../services/api';
@@ -32,6 +33,7 @@ const Apply = () => {
     const [form] = Form.useForm();
     const [calculatedAge, setCalculatedAge] = useState(null);
     const [familyMembers, setFamilyMembers] = useState([]);
+    const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
     // Status check state
     const [checkMode, setCheckMode] = useState(false);
@@ -167,6 +169,11 @@ const Apply = () => {
     };
 
     const handleNext = async () => {
+        // Block Step 1 if privacy not agreed
+        if (currentStep === 0 && !privacyAgreed) {
+            message.warning('Please read and agree to the Data Privacy Notice before proceeding.');
+            return;
+        }
         try {
             const values = await form.validateFields();
             const definedValues = Object.fromEntries(
@@ -712,6 +719,58 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                     </Row>
+
+                                    {/* Data Privacy Notice */}
+                                    <Divider />
+                                    <Card
+                                        style={{
+                                            background: '#f0f5ff',
+                                            border: '1px solid #adc6ff',
+                                            borderRadius: 12,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                                            <SafetyCertificateOutlined style={{ fontSize: 20, color: '#1d39c4' }} />
+                                            <Title level={5} style={{ margin: 0, color: '#1d39c4' }}>Data Privacy Notice</Title>
+                                        </div>
+                                        <div style={{
+                                            background: 'white',
+                                            borderRadius: 8,
+                                            padding: '12px 16px',
+                                            marginBottom: 12,
+                                            maxHeight: 160,
+                                            overflowY: 'auto',
+                                            fontSize: 13,
+                                            lineHeight: 1.7,
+                                            color: '#444',
+                                            border: '1px solid #e8e8e8',
+                                        }}>
+                                            <p style={{ marginBottom: 8 }}>
+                                                In compliance with <strong>Republic Act No. 10173</strong>, also known as the
+                                                <strong> Data Privacy Act of 2012</strong>, the Office for Senior Citizens Affairs (OSCA)
+                                                - Zamboanga City commits to protecting and respecting your personal data.
+                                            </p>
+                                            <p style={{ marginBottom: 8 }}>
+                                                By proceeding with this application, you acknowledge and consent to the following:
+                                            </p>
+                                            <ul style={{ paddingLeft: 20, marginBottom: 8 }}>
+                                                <li style={{ marginBottom: 4 }}>The personal information you provide, including but not limited to your name, birthdate, address, contact details, and family composition, will be <strong>collected, recorded, stored, processed, and used</strong> by OSCA for the purpose of processing your Senior Citizen ID application and providing government services and benefits.</li>
+                                                <li style={{ marginBottom: 4 }}>Your data may be <strong>shared with authorized government agencies</strong> (e.g., DSWD, PhilHealth, LGU offices) strictly for the purpose of delivering senior citizen benefits and services as mandated by <strong>Republic Act No. 9994</strong> (Expanded Senior Citizens Act of 2010).</li>
+                                                <li style={{ marginBottom: 4 }}>OSCA will implement <strong>reasonable and appropriate security measures</strong> to protect your personal data against unauthorized access, disclosure, or misuse.</li>
+                                                <li style={{ marginBottom: 4 }}>You have the right to <strong>access, correct, and request deletion</strong> of your personal data by contacting the OSCA Main Office.</li>
+                                            </ul>
+                                            <p style={{ margin: 0, fontStyle: 'italic', color: '#666' }}>
+                                                For concerns regarding your personal data, you may contact the OSCA Data Protection Officer at the City Hall, Zamboanga City.
+                                            </p>
+                                        </div>
+                                        <Checkbox
+                                            checked={privacyAgreed}
+                                            onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                            style={{ fontSize: 14 }}
+                                        >
+                                            <Text strong>I have read, understood, and agree to the Data Privacy Notice above.</Text>
+                                        </Checkbox>
+                                    </Card>
                                 </div>
                             )}
 
@@ -1098,7 +1157,13 @@ const Apply = () => {
                                     </Button>
                                 ) : <div />}
                                 {currentStep < steps.length - 1 ? (
-                                    <Button type="primary" size="large" onClick={handleNext} style={{ background: '#4338ca', borderRadius: 8 }}>
+                                    <Button
+                                        type="primary"
+                                        size="large"
+                                        onClick={handleNext}
+                                        disabled={currentStep === 0 && !privacyAgreed}
+                                        style={{ background: (currentStep === 0 && !privacyAgreed) ? undefined : '#4338ca', borderRadius: 8 }}
+                                    >
                                         Next <ArrowRightOutlined />
                                     </Button>
                                 ) : (
@@ -1116,8 +1181,8 @@ const Apply = () => {
                         </Form>
                     </Card>
                 </div>
-            </section>
-        </div>
+            </section >
+        </div >
     );
 };
 
