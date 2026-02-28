@@ -13,6 +13,7 @@ use App\Models\CivilStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use App\Services\SmsService;
 
 class PublicController extends Controller
 {
@@ -116,7 +117,7 @@ class PublicController extends Controller
             'civil_status_id' => 'required|integer',
             'house_number' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
-            'mobile_number' => 'nullable|string|max:20',
+            'mobile_number' => ['required', 'string', 'max:20', 'regex:/^09\d{9}$/'],
             'telephone_number' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
             'educational_attainment_id' => 'nullable|integer',
@@ -214,10 +215,22 @@ class PublicController extends Controller
             'status' => PreRegistration::STATUS_PENDING,
         ]);
 
+        // Send reference number via SMS
+        $smsSent = false;
+        if ($request->mobile_number) {
+            $smsService = new SmsService();
+            $smsResult = $smsService->sendReferenceNumber(
+                $request->mobile_number,
+                $preRegistration->reference_number
+            );
+            $smsSent = $smsResult['success'];
+        }
+
         return response()->json([
             'message' => 'Application submitted successfully',
             'reference_number' => $preRegistration->reference_number,
             'status' => $preRegistration->status,
+            'sms_sent' => $smsSent,
             'next_steps' => 'Your application will be reviewed by the Admin. Visit the OSCA office with your documents to complete registration.',
         ], 201);
     }

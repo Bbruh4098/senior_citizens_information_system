@@ -26,6 +26,7 @@ const Apply = () => {
     const [submitted, setSubmitted] = useState(false);
     const [referenceNumber, setReferenceNumber] = useState('');
     const [loading, setLoading] = useState(false);
+    const [smsSent, setSmsSent] = useState(false);
     const [barangays, setBarangays] = useState([]);
     const [loadingBarangays, setLoadingBarangays] = useState(true);
     const [form] = Form.useForm();
@@ -242,6 +243,7 @@ const Apply = () => {
 
             const response = await publicApi.apply(submitData);
             setReferenceNumber(response.data.reference_number);
+            setSmsSent(response.data.sms_sent || false);
             setSubmitted(true);
             message.success('Application submitted successfully!');
         } catch (error) {
@@ -393,6 +395,11 @@ const Apply = () => {
                                     <Paragraph type="secondary">
                                         Your application will be reviewed by the Admin. Visit the OSCA office with your documents to complete registration.
                                     </Paragraph>
+                                    {smsSent && (
+                                        <Paragraph style={{ color: '#059669', fontWeight: 500 }}>
+                                            ✓ Reference number has been sent to your mobile number via SMS.
+                                        </Paragraph>
+                                    )}
                                 </div>
                             }
                             extra={[
@@ -652,8 +659,15 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="mobile_number" label="Mobile Number">
-                                                <Input placeholder="09XX-XXX-XXXX" size="large" />
+                                            <Form.Item
+                                                name="mobile_number"
+                                                label={<span>Mobile Number <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                rules={[
+                                                    { required: true, message: 'Mobile number is required for SMS notifications' },
+                                                    { pattern: /^09\d{9}$/, message: 'Must be a valid PH mobile number (09XXXXXXXXX)' },
+                                                ]}
+                                            >
+                                                <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
                                             </Form.Item>
                                         </Col>
                                     </Row>

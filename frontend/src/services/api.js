@@ -408,4 +408,17 @@ export const dropdownApi = {
   reorder: (type, order) => api.post(`/admin/dropdowns/${type}/reorder`, { order }),
 };
 
+// SMS Settings API
+export const smsApi = {
+  getSettings: () => api.get('/admin/sms/settings'),
+
+  updateSettings: (settings) => api.put('/admin/sms/settings', { settings }),
+
+  getLogs: (params) => api.get('/admin/sms/logs', { params }),
+
+  getStats: () => api.get('/admin/sms/stats'),
+
+  sendTest: (phone_number) => api.post('/admin/sms/test', { phone_number }),
+};
+
 export default api;

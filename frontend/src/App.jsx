@@ -28,6 +28,7 @@ import BenefitSettings from "./pages/admin/BenefitSettings";
 import BenefitComplaints from "./pages/admin/BenefitComplaints";
 import AuditLog from "./pages/admin/AuditLog";
 import DataManagement from "./pages/admin/DataManagement";
+import SmsSettings from "./pages/admin/SmsSettings";
 import Announcements from "./pages/Announcements";
 import Archives from "./pages/Archives";
 
@@ -182,6 +183,14 @@ function App() {
                   element={
                     <ProtectedRoute allowedRoles={[1]}>
                       <DataManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="settings/sms"
+                  element={
+                    <ProtectedRoute allowedRoles={[1]}>
+                      <SmsSettings />
                     </ProtectedRoute>
                   }
                 />

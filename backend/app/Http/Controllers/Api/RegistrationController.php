@@ -157,7 +157,7 @@ class RegistrationController extends Controller
                 'barangay_id' => 'required|exists:barangays,id',
                 'house_number' => 'nullable|string|max:100',
                 'street' => 'nullable|string|max:255',
-                'mobile_number' => 'nullable|string|max:20',
+                'mobile_number' => ['required', 'string', 'max:20', 'regex:/^09\d{9}$/'],
                 'telephone_number' => 'nullable|string|max:20',
                 'email' => 'nullable|email|max:100',
                 'educational_attainment_id' => 'nullable|integer',

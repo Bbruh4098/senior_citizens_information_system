@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, Form, Input, Button, Typography, Steps, message, Result } from 'antd';
 import {
@@ -7,6 +7,7 @@ import {
     LockOutlined,
     CheckCircleOutlined,
     SafetyOutlined,
+    ReloadOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -21,23 +22,53 @@ const SeniorLogin = () => {
     const [seniorId, setSeniorId] = useState(null);
     const [needsPinSetup, setNeedsPinSetup] = useState(false);
     const [devOtp, setDevOtp] = useState(null);
+    const [smsSent, setSmsSent] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [lastOtpValues, setLastOtpValues] = useState(null);
+    const cooldownRef = useRef(null);
     const [form] = Form.useForm();
     const navigate = useNavigate();
+
+    // Cooldown timer effect
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            cooldownRef.current = setTimeout(() => {
+                setResendCooldown(prev => prev - 1);
+            }, 1000);
+            return () => clearTimeout(cooldownRef.current);
+        }
+    }, [resendCooldown]);
 
     const handleRequestOtp = async (values) => {
         setLoading(true);
         try {
             const response = await axios.post(`${API_URL}/senior/request-otp`, values);
             setSeniorId(response.data.senior_id);
-            setDevOtp(response.data.dev_otp); // For development only
+            setDevOtp(response.data.dev_otp); // Shown in dev mode or when SMS fails
+            setSmsSent(response.data.sms_sent || false);
+            setLastOtpValues(values);
             setStep(1);
-            message.success('OTP sent to your phone number');
+            setResendCooldown(60);
+            if (response.data.sms_sent) {
+                message.success('OTP sent to your phone number via SMS');
+            } else {
+                message.info(response.data.message || 'OTP generated');
+            }
         } catch (error) {
             const msg = error.response?.data?.message || 'Failed to send OTP';
-            message.error(msg);
+            if (error.response?.status === 429) {
+                message.warning(msg);
+            } else {
+                message.error(msg);
+            }
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleResendOtp = async () => {
+        if (!lastOtpValues || resendCooldown > 0) return;
+        await handleRequestOtp(lastOtpValues);
     };
 
     const handleVerifyOtp = async (values) => {
@@ -227,6 +258,19 @@ const SeniorLogin = () => {
                                 </Form.Item>
                                 <Button type="link" block onClick={() => setStep(0)}>
                                     ← Back to OSCA ID
+                                </Button>
+                                <Button
+                                    type="link"
+                                    block
+                                    icon={<ReloadOutlined />}
+                                    disabled={resendCooldown > 0}
+                                    loading={loading}
+                                    onClick={handleResendOtp}
+                                    style={{ marginTop: 4 }}
+                                >
+                                    {resendCooldown > 0
+                                        ? `Resend OTP (${resendCooldown}s)`
+                                        : 'Resend OTP'}
                                 </Button>
                             </Form>
                         )}

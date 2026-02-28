@@ -956,8 +956,15 @@ const NewApplication = () => {
 
             <Row gutter={16}>
                 <Col xs={24} sm={12} md={6}>
-                    <Form.Item name="mobile_number" label="Mobile Number">
-                        <Input placeholder="09XX-XXX-XXXX" size="large" />
+                    <Form.Item
+                        name="mobile_number"
+                        label={<span>Mobile Number <span style={{ color: '#fa8c16' }}>*</span></span>}
+                        rules={[
+                            { required: true, message: 'Mobile number is required' },
+                            { pattern: /^09\d{9}$/, message: 'Must be valid PH number (09XXXXXXXXX)' },
+                        ]}
+                    >
+                        <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
                     </Form.Item>
                 </Col>
                 <Col xs={24} sm={12} md={6}>

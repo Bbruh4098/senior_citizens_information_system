@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\PreRegistrationController;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\SeniorAuthController;
 use App\Http\Controllers\Api\BenefitComplaintController;
+use App\Http\Controllers\Api\SmsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,7 @@ Route::prefix('public')->group(function () {
     Route::post('/apply', [PublicController::class, 'apply']);
     Route::get('/status/{referenceNumber}', [PublicController::class, 'checkStatus']);
 });
+
 
 
 // Senior Portal Authentication (public - no auth required)
@@ -253,6 +255,15 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [\App\Http\Controllers\Api\DropdownController::class, 'update']);
             Route::patch('/{id}/toggle', [\App\Http\Controllers\Api\DropdownController::class, 'toggleEnabled']);
             Route::post('/reorder', [\App\Http\Controllers\Api\DropdownController::class, 'reorder']);
+        });
+
+        // SMS Settings & Management
+        Route::prefix('admin/sms')->group(function () {
+            Route::get('/settings', [SmsController::class, 'getSettings']);
+            Route::put('/settings', [SmsController::class, 'updateSettings']);
+            Route::get('/logs', [SmsController::class, 'getLogs']);
+            Route::get('/stats', [SmsController::class, 'getStats']);
+            Route::post('/test', [SmsController::class, 'sendTest']);
         });
     });
 
