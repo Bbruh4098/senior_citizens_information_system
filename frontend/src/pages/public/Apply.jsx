@@ -1078,7 +1078,7 @@ const Apply = () => {
                                     </Card>
                                     <Card style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 12 }}>
                                         <Text>
-                                            <strong>Important:</strong> After submitting, please visit the OSCA office with the following:
+                                            <strong>Important:</strong> After submitting this form, please note that you are NOT YET officially registered with OSCA. Online submission is only the initial step of the application process. To complete your registration, you must personally visit the nearest OSCA office and bring the following required documents:
                                             <ul style={{ marginTop: 8, paddingLeft: 20 }}>
                                                 <li>Birth Certificate (PSA/NSO)</li>
                                                 <li>Barangay Certificate</li>
