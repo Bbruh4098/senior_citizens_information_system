@@ -221,11 +221,13 @@ const RenewApplication = () => {
                     extension: senior.extension,
                     birthdate: senior.birthdate ? dayjs(senior.birthdate) : null,
                     gender_id: senior.gender_id,
+                    civil_status_id: senior.civil_status_id,
                     barangay_id: senior.barangay_id,
                     house_number: senior.contact?.house_number,
                     street: senior.contact?.street,
                     mobile_number: senior.contact?.mobile_number,
                     telephone_number: senior.contact?.telephone_number,
+                    email: senior.contact?.email,
                     educational_attainment_id: senior.educational_attainment_id,
                     monthly_salary: senior.monthly_salary,
                     occupation: senior.occupation,
@@ -295,11 +297,13 @@ const RenewApplication = () => {
                     extension: formValues.extension,
                     birthdate: formValues.birthdate?.format?.('YYYY-MM-DD') || formValues.birthdate,
                     gender_id: formValues.gender_id,
+                    civil_status_id: formValues.civil_status_id,
                     barangay_id: formValues.barangay_id,
                     house_number: formValues.house_number,
                     street: formValues.street,
                     mobile_number: formValues.mobile_number,
                     telephone_number: formValues.telephone_number,
+                    email: formValues.email,
                     educational_attainment_id: formValues.educational_attainment_id,
                     monthly_salary: formValues.monthly_salary,
                     occupation: formValues.occupation,
@@ -454,11 +458,13 @@ const RenewApplication = () => {
                 extension: formValues.extension,
                 birthdate: formValues.birthdate?.format?.('YYYY-MM-DD') || formValues.birthdate,
                 gender_id: formValues.gender_id,
+                civil_status_id: formValues.civil_status_id,
                 barangay_id: formValues.barangay_id,
                 house_number: formValues.house_number,
                 street: formValues.street,
                 mobile_number: formValues.mobile_number,
                 telephone_number: formValues.telephone_number,
+                email: formValues.email,
                 educational_attainment_id: formValues.educational_attainment_id,
                 monthly_salary: formValues.monthly_salary,
                 occupation: formValues.occupation,
@@ -599,7 +605,7 @@ const RenewApplication = () => {
                         title={<><UserOutlined /> Senior Citizen Information</>}
                         style={{ marginBottom: 24 }}
                     >
-                        <Descriptions bordered size="small" column={{ xs: 1, sm: 2, md: 3 }}>
+                        <Descriptions bordered size="small" column={{ xs: 1, sm: 2, md: 4 }}>
                             <Descriptions.Item label="OSCA ID">
                                 <Text strong style={{ color: '#1890ff' }}>{seniorData.osca_id}</Text>
                             </Descriptions.Item>
@@ -607,14 +613,16 @@ const RenewApplication = () => {
                                 {seniorData.full_name || `${seniorData.first_name} ${seniorData.middle_name || ''} ${seniorData.last_name}`.trim()}
                             </Descriptions.Item>
                             <Descriptions.Item label="Age">
-                                <Space>
-                                    {seniorData.age || calculatedAge} years old
-                                    {(() => {
-                                        const age = seniorData.age || calculatedAge;
-                                        const cat = age ? getAgeCategory(age) : null;
-                                        return cat ? <Tag color={cat.color}>{cat.label}</Tag> : null;
-                                    })()}
-                                </Space>
+                                <span style={{ whiteSpace: 'nowrap' }}>
+                                    {seniorData.age || calculatedAge} yrs old
+                                </span>
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Category">
+                                {(() => {
+                                    const age = seniorData.age || calculatedAge;
+                                    const cat = age ? getAgeCategory(age) : null;
+                                    return cat ? <Tag color={cat.color}>{cat.label}</Tag> : <Text type="secondary">—</Text>;
+                                })()}
                             </Descriptions.Item>
                             <Descriptions.Item label="Sex">
                                 {seniorData.gender?.name || (seniorData.gender_id === 1 ? 'Male' : seniorData.gender_id === 2 ? 'Female' : '-')}
@@ -720,7 +728,7 @@ const RenewApplication = () => {
                                     />
                                 </Form.Item>
                             </Col>
-                            <Col xs={24} sm={12} md={8}>
+                            <Col xs={24} sm={12} md={6}>
                                 <Form.Item
                                     name="gender_id"
                                     label="Sex"
@@ -729,6 +737,18 @@ const RenewApplication = () => {
                                     <Select placeholder="Select Sex">
                                         {lookupOptions?.genders?.map((g) => (
                                             <Option key={g.id} value={g.id}>{g.name}</Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={6}>
+                                <Form.Item
+                                    name="civil_status_id"
+                                    label="Civil Status"
+                                >
+                                    <Select placeholder="Select Civil Status" allowClear>
+                                        {lookupOptions?.civil_statuses?.map((cs) => (
+                                            <Option key={cs.id} value={cs.id}>{cs.name}</Option>
                                         ))}
                                     </Select>
                                 </Form.Item>
@@ -774,6 +794,11 @@ const RenewApplication = () => {
                             <Col xs={24} sm={12} md={6}>
                                 <Form.Item name="telephone_number" label="Telephone Number">
                                     <Input placeholder="Telephone" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={6}>
+                                <Form.Item name="email" label="Email Address">
+                                    <Input placeholder="email@example.com" type="email" />
                                 </Form.Item>
                             </Col>
                         </Row>

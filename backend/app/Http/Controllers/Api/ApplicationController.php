@@ -137,16 +137,24 @@ class ApplicationController extends Controller
                 // Add barangay_name to the applicant_data.personal_info
                 $data['applicant_data']['personal_info']['barangay_name'] = $barangay ? $barangay->name : null;
             }
-            if (isset($personal['civil_status_id'])) {
-                $civilStatus = \App\Models\CivilStatus::find($personal['civil_status_id']);
-                $data['applicant_data']['personal_info']['civil_status_name'] = $civilStatus ? $civilStatus->name : null;
-            }
         } elseif ($application->senior && $application->senior->barangay) {
             // For apps with senior, include barangay name in applicant_data too
             if (!isset($data['applicant_data']['personal_info'])) {
                 $data['applicant_data']['personal_info'] = [];
             }
             $data['applicant_data']['personal_info']['barangay_name'] = $application->senior->barangay->name;
+        }
+
+        // Always resolve civil_status_name from personal_info for any app type
+        if ($application->applicant_data) {
+            $personal = $application->applicant_data['personal_info'] ?? [];
+            if (isset($personal['civil_status_id']) && !isset($data['applicant_data']['personal_info']['civil_status_name'])) {
+                $civilStatus = \App\Models\CivilStatus::find($personal['civil_status_id']);
+                if (!isset($data['applicant_data']['personal_info'])) {
+                    $data['applicant_data']['personal_info'] = $personal;
+                }
+                $data['applicant_data']['personal_info']['civil_status_name'] = $civilStatus ? $civilStatus->name : null;
+            }
         }
 
         // Always resolve educational_attainment_name from background_info
@@ -434,6 +442,7 @@ class ApplicationController extends Controller
             'extension' => $personal['extension'] ?? $senior->extension,
             'birthdate' => $personal['birthdate'] ?? $senior->birthdate,
             'gender_id' => $personal['gender_id'] ?? $senior->gender_id,
+            'civil_status_id' => $personal['civil_status_id'] ?? $senior->civil_status_id,
             'barangay_id' => $personal['barangay_id'] ?? $senior->barangay_id,
             'educational_attainment_id' => $background['educational_attainment_id'] ?? $senior->educational_attainment_id,
             'monthly_salary' => $background['monthly_salary'] ?? $senior->monthly_salary,
@@ -448,6 +457,7 @@ class ApplicationController extends Controller
             $senior->contact->update([
                 'mobile_number' => $contact['mobile_number'] ?? $senior->contact->mobile_number,
                 'telephone_number' => $contact['telephone_number'] ?? $senior->contact->telephone_number,
+                'email' => $contact['email'] ?? $senior->contact->email,
                 'house_number' => $contact['house_number'] ?? $senior->contact->house_number,
                 'street' => $contact['street'] ?? $senior->contact->street,
                 'barangay_id' => $personal['barangay_id'] ?? $senior->contact->barangay_id,

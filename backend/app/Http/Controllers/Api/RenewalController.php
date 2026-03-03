@@ -94,6 +94,7 @@ class RenewalController extends Controller
                     'street' => $senior->contact->street,
                     'mobile_number' => $senior->contact->mobile_number,
                     'telephone_number' => $senior->contact->telephone_number,
+                    'email' => $senior->contact->email,
                 ] : null,
                 'educational_attainment_id' => $senior->educational_attainment_id,
                 'educational_attainment' => $senior->educationalAttainment?->level ?? null,
@@ -128,12 +129,14 @@ class RenewalController extends Controller
             'extension' => 'nullable|string|max:20',
             'birthdate' => 'required|date',
             'gender_id' => 'required|exists:genders,id',
+            'civil_status_id' => 'nullable|integer',
             'barangay_id' => 'required|exists:barangays,id',
             // Contact info
             'house_number' => 'nullable|string|max:100',
             'street' => 'nullable|string|max:255',
             'mobile_number' => 'nullable|string|max:20',
             'telephone_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
             // Background
             'educational_attainment_id' => 'nullable|integer',
             'monthly_salary' => 'nullable|numeric',
@@ -183,6 +186,7 @@ class RenewalController extends Controller
                     'extension' => $extension,
                     'birthdate' => $request->birthdate,
                     'gender_id' => $request->gender_id,
+                    'civil_status_id' => $request->civil_status_id,
                     'barangay_id' => $request->barangay_id,
                 ],
                 'contact_info' => [
@@ -190,6 +194,7 @@ class RenewalController extends Controller
                     'street' => $request->street,
                     'mobile_number' => $request->mobile_number,
                     'telephone_number' => $request->telephone_number,
+                    'email' => $request->email,
                 ],
                 'background_info' => [
                     'educational_attainment_id' => $request->educational_attainment_id,
@@ -301,11 +306,13 @@ class RenewalController extends Controller
             'extension' => 'nullable|string|max:20',
             'birthdate' => 'required|date',
             'gender_id' => 'required|exists:genders,id',
+            'civil_status_id' => 'nullable|integer',
             'barangay_id' => 'required|exists:barangays,id',
             'house_number' => 'nullable|string|max:100',
             'street' => 'nullable|string|max:255',
             'mobile_number' => 'nullable|string|max:20',
             'telephone_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
             'educational_attainment_id' => 'nullable|integer',
             'monthly_salary' => 'nullable|numeric',
             'occupation' => 'nullable|string|max:200',
@@ -334,6 +341,7 @@ class RenewalController extends Controller
                     'extension' => $extension,
                     'birthdate' => $request->birthdate,
                     'gender_id' => $request->gender_id,
+                    'civil_status_id' => $request->civil_status_id,
                     'barangay_id' => $request->barangay_id,
                 ],
                 'contact_info' => [
@@ -341,6 +349,7 @@ class RenewalController extends Controller
                     'street' => $request->street,
                     'mobile_number' => $request->mobile_number,
                     'telephone_number' => $request->telephone_number,
+                    'email' => $request->email,
                 ],
                 'background_info' => [
                     'educational_attainment_id' => $request->educational_attainment_id,
