@@ -80,6 +80,7 @@ class AnnouncementController extends Controller
             'target_audience' => 'nullable|string|max:255',
             'is_published' => 'boolean',
             'barangay_id' => 'nullable|exists:barangays,id',
+            'media.*' => 'nullable|file|mimes:jpg,jpeg,png,mp4,pdf,doc,docx|max:20480', // 20MB max
         ]);
 
         $user = $request->user();
@@ -97,10 +98,25 @@ class AnnouncementController extends Controller
             'barangay_id' => $request->input('barangay_id'),
         ]);
 
+        // Handle media uploads
+        if ($request->hasFile('media')) {
+            foreach ($request->file('media') as $file) {
+                $path = $file->store('announcements', 'public');
+                $mediaType = $this->getMediaType($file->getClientMimeType());
+
+                AnnouncementMedia::create([
+                    'announcement_id' => $announcement->id,
+                    'file_path' => $path,
+                    'media_type' => $mediaType,
+                ]);
+            }
+        }
+
+        $announcement->load('media');
+
         return response()->json([
             'success' => true,
-            'message' => 'Announcement created successfully',
-            'data' => $announcement->load(['type', 'barangay', 'media']),
+            'data' => $announcement,
         ], 201);
     }
 
@@ -269,5 +285,22 @@ class AnnouncementController extends Controller
             'success' => true,
             'data' => $types,
         ]);
+    }
+
+    /**
+     * Determine the media type from the file's MIME type.
+     *
+     * @param string $mimeType
+     * @return string
+     */
+    private function getMediaType(string $mimeType): string
+    {
+        if (str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        }
+        if (str_starts_with($mimeType, 'video/')) {
+            return 'video';
+        }
+        return 'document';
     }
 }

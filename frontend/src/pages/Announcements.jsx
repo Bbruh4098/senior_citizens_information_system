@@ -18,7 +18,7 @@ import {
   Popconfirm,
   Upload,
   List,
-  Alert, // Added missing Alert import
+  Alert,
 } from "antd";
 import {
   SearchOutlined,
@@ -29,6 +29,7 @@ import {
   CalendarOutlined,
   EnvironmentOutlined,
   PaperClipOutlined,
+  UploadOutlined, // Added this missing import
 } from "@ant-design/icons";
 import { announcementsApi } from "../services/api";
 import dayjs from "dayjs";
@@ -48,7 +49,7 @@ const Announcements = () => {
   });
   const [filters, setFilters] = useState({
     search: "",
-    is_published: null, // Use null for 'all'
+    is_published: null,
   });
   const [formModal, setFormModal] = useState({
     visible: false,
@@ -71,7 +72,6 @@ const Announcements = () => {
         page,
         per_page: pageSize,
         search: filters.search,
-        // Only include is_published if it's not null
         ...(filters.is_published !== null && { is_published: filters.is_published }),
       };
       const response = await announcementsApi.getList(params);
@@ -106,13 +106,14 @@ const Announcements = () => {
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       fetchAnnouncements(1);
-    }, 300); // Debounce search and filter changes
+    }, 300);
 
     return () => clearTimeout(delayDebounce);
   }, [filters]);
 
   const openCreateModal = () => {
     form.resetFields();
+    setMediaList([]); // Clear media list on new creation
     setFormModal({ visible: true, mode: "create", item: null });
   };
 
@@ -122,7 +123,6 @@ const Announcements = () => {
       event_date: item.event_date ? dayjs(item.event_date) : null,
     });
     setFormModal({ visible: true, mode: "edit", item });
-    // Load media for this announcement
     loadMedia(item.id);
   };
 
@@ -131,7 +131,6 @@ const Announcements = () => {
       const res = await announcementsApi.getMedia(announcementId);
       setMediaList(res.data.data || []);
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to load media", error);
     }
   };
@@ -147,7 +146,6 @@ const Announcements = () => {
         const res = await announcementsApi.create(data);
         message.success("Announcement created");
 
-        // Keep modal open in edit mode to allow media upload
         const created = res.data?.data;
         if (created?.id) {
           setFormModal({ visible: true, mode: "edit", item: created });
@@ -399,7 +397,7 @@ const Announcements = () => {
             <Switch checkedChildren="Published" unCheckedChildren="Draft" />
           </Form.Item>
 
-          {/* Media Upload Section - Visible in both Create and Edit modes */}
+          {/* Media Upload Section */}
           <Card
             type="inner"
             title={
@@ -409,97 +407,111 @@ const Announcements = () => {
             }
             style={{ marginBottom: 16 }}
           >
-            {formModal.mode === "create" && !formModal.item ? (
-              <Alert
-                message="Save the announcement first to enable media uploads."
-                type="info"
-                showIcon
-              />
-            ) : (
-              <>
-                <Upload
-                  multiple={false}
-                  showUploadList={false}
-                  customRequest={async ({ file, onSuccess, onError }) => {
-                    if (!formModal.item) return;
-                    setMediaUploading(true);
-                    const formData = new FormData();
-                    formData.append("file", file);
-                    try {
-                      const res = await announcementsApi.uploadMedia(
-                        formModal.item.id,
-                        formData
-                      );
-                      const uploaded = res.data?.data;
-                      setMediaList((prev) => [...prev, uploaded]);
-                      onSuccess && onSuccess(res.data);
-                      message.success("File uploaded");
-                    } catch (err) {
-                      console.error("Upload failed", err);
-                      onError && onError(err);
-                      message.error("Failed to upload file");
-                    } finally {
-                      setMediaUploading(false);
-                    }
-                  }}
-                >
-                  <Button loading={mediaUploading} icon={<PlusOutlined />}>
-                    Upload File
-                  </Button>
-                </Upload>
+            <Upload
+              multiple={false}
+              showUploadList={false}
+              customRequest={async ({ file, onSuccess, onError }) => {
+                if (formModal.mode === "create") {
+                  // For create mode, just add to a temporary list
+                  setMediaList((prev) => [
+                    ...prev,
+                    {
+                      uid: file.uid,
+                      name: file.name,
+                      status: "done",
+                      url: URL.createObjectURL(file), // for preview
+                      originFileObj: file, // keep the file object
+                    },
+                  ]);
+                  onSuccess();
+                  return;
+                }
 
-                <List
-                  style={{ marginTop: 16 }}
-                  locale={{ emptyText: "No attachments yet" }}
-                  dataSource={mediaList}
-                  renderItem={(item) => (
-                    <List.Item
-                      actions={[
-                        <a
-                          key="download"
-                          href={item.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          View
-                        </a>,
-                        <a
-                          key="delete"
-                          onClick={async () => {
-                            try {
-                              await announcementsApi.deleteMedia(item.id);
-                              setMediaList((prev) =>
-                                prev.filter((m) => m.id !== item.id)
-                              );
-                              message.success("Attachment deleted");
-                            } catch (e) {
-                              message.error("Failed to delete attachment");
-                            }
-                          }}
-                        >
-                          Delete
-                        </a>,
-                      ]}
+                if (!formModal.item) return;
+                setMediaUploading(true);
+                const formData = new FormData();
+                formData.append("file", file);
+                try {
+                  const res = await announcementsApi.uploadMedia(
+                    formModal.item.id,
+                    formData
+                  );
+                  const uploaded = res.data?.data;
+                  setMediaList((prev) => [...prev, uploaded]);
+                  onSuccess && onSuccess(res.data);
+                  message.success("File uploaded");
+                } catch (err) {
+                  console.error("Upload failed", err);
+                  onError && onError(err);
+                  message.error("Failed to upload file");
+                } finally {
+                  setMediaUploading(false);
+                }
+              }}
+            >
+              <Button loading={mediaUploading} icon={<UploadOutlined />}>
+                Upload File
+              </Button>
+            </Upload>
+
+            <List
+              style={{ marginTop: 16 }}
+              size="small"
+              bordered
+              locale={{ emptyText: "No attachments yet" }}
+              dataSource={mediaList}
+              renderItem={(item) => (
+                <List.Item
+                  actions={[
+                    <a
+                      key="download"
+                      href={item.url || item.file_path}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
-                      <List.Item.Meta
-                        title={
-                          <span>
-                            {item.media_type?.toUpperCase()} - {item.file_path}
-                          </span>
+                      View
+                    </a>,
+                    <a
+                      key="delete"
+                      style={{ color: "red" }}
+                      onClick={async () => {
+                        try {
+                          if (formModal.mode !== "create") {
+                            await announcementsApi.deleteMedia(item.id);
+                          }
+                          setMediaList((prev) =>
+                            prev.filter((m) => m.id !== item.id && m.uid !== item.uid)
+                          );
+                          message.success("Attachment deleted");
+                        } catch (e) {
+                          message.error("Failed to delete attachment");
                         }
-                        description={
-                          item.uploaded_at
-                            ? dayjs(item.uploaded_at).format(
-                                "MMM D, YYYY HH:mm"
-                              )
-                            : ""
-                        }
-                      />
-                    </List.Item>
-                  )}
-                />
-              </>
-            )}
+                      }}
+                    >
+                      Delete
+                    </a>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    avatar={<PaperClipOutlined />}
+                    title={
+                      <a
+                        href={item.url || item.file_path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {item.name || (item.file_path ? item.file_path.split("/").pop() : "Attachment")}
+                      </a>
+                    }
+                    description={
+                      item.uploaded_at
+                        ? dayjs(item.uploaded_at).format("MMM D, YYYY HH:mm")
+                        : item.media_type?.toUpperCase() || "File"
+                    }
+                  />
+                </List.Item>
+              )}
+            />
           </Card>
 
           <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
