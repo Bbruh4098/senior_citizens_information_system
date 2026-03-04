@@ -84,6 +84,9 @@ const Archives = () => {
   const handleSearchChange = (e) => {
   const value = e.target.value;
   setFilters((prev) => ({ ...prev, search: value }));
+  if (value === "") {
+    fetchArchives(1, pagination.pageSize, { ...filters, search: "" });
+  }
   };
 
   const handleReasonChange = (value) => {
@@ -220,18 +223,10 @@ const Archives = () => {
               placeholder="Search by name or OSCA ID"
               prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
               allowClear
-              value={filters.search}
+              value={filters.search} // This is important for the "Clear" button to work
               onChange={handleSearchChange}
-              onPressEnter={() => fetchArchives(1, pagination.pageSize)} // Trigger on Enter key
-              suffix={
-                <Button 
-                  type="primary" 
-                  size="small" 
-                  onClick={() => fetchArchives(1, pagination.pageSize)}
-                >
-                  Search
-                </Button>
-              }
+              onPressEnter={() => fetchArchives(1, pagination.pageSize)}
+              style={{ width: "100%" }}
             />
           </Col>
           <Col xs={12} md={5}>

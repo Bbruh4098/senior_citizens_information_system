@@ -88,7 +88,7 @@ class ArchiveController extends Controller
 
                 // Search logic for 'user' (admins, etc.)
                 $q->orWhere(function ($uq) use ($searchLike) {
-                    $uq->where('archive_type', 'user')
+                    $uq->where('archive_type', 'admin_user')
                         ->where(function ($usq) use ($searchLike) {
                             $usq->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.employee_id')) LIKE ?", [$searchLike])
                                 ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(archive_data, '$.username')) LIKE ?", [$searchLike])
