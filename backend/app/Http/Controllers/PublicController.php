@@ -46,7 +46,7 @@ class PublicController extends Controller
      */
     public function announcements(Request $request): JsonResponse
     {
-        $query = Announcement::with('type')
+        $query = Announcement::with(['type', 'media'])
             ->published()
             ->orderByDesc('published_date')
             ->orderByDesc('created_at');
@@ -74,12 +74,16 @@ class PublicController extends Controller
             return [
                 'id' => $announcement->id,
                 'title' => $announcement->title,
-                'content' => $announcement->content,
+                'description' => $announcement->description ?? $announcement->content,
+                'content' => $announcement->content ?? $announcement->description,
                 'type' => $announcement->type?->code ?? 'news',
                 'type_name' => $announcement->type?->name,
                 'date' => $eventDate ?? $publishedDate ?? $announcement->created_at?->format('Y-m-d'),
                 'event_date' => $eventDate,
                 'published_at' => $announcement->published_date?->toIso8601String(),
+                'media' => $announcement->media,
+                'location' => $announcement->location,
+                'target_audience' => $announcement->target_audience,
             ];
         });
 

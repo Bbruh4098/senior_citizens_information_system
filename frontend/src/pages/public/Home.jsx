@@ -1,9 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Row, Col, Button, Card, Statistic, Typography, 
-  Spin, Modal, Tag, Space, Divider, Image 
-} from 'antd'; // Added Modal, Tag, Space, Divider, Image
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import {
+  Row,
+  Col,
+  Button,
+  Card,
+  Statistic,
+  Typography,
+  Spin,
+  Modal,
+  Tag,
+  Space,
+  Divider,
+  Image,
+} from "antd"; // Added Modal, Tag, Space, Divider, Image
 import {
   ArrowRightOutlined,
   TeamOutlined,
@@ -14,21 +24,21 @@ import {
   RightOutlined,
   LeftOutlined,
   EnvironmentOutlined,
-  InfoCircleOutlined
-} from '@ant-design/icons';
-import dayjs from 'dayjs';
-import { publicApi } from '../../services/api';
+  InfoCircleOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
+import { publicApi } from "../../services/api";
 
 const { Title, Paragraph, Text } = Typography;
 
 // Carousel images
 const carouselImages = [
-  '/images/img_carousel1.jpg',
-  '/images/img_carousel2.jpg',
-  '/images/img_carousel3.jpg',
-  '/images/img_carousel4.jpg',
-  '/images/img_carousel5.jpg',
-  '/images/img_carousel6.jpg',
+  "/images/img_carousel1.jpg",
+  "/images/img_carousel2.jpg",
+  "/images/img_carousel3.jpg",
+  "/images/img_carousel4.jpg",
+  "/images/img_carousel5.jpg",
+  "/images/img_carousel6.jpg",
 ];
 
 // Hero Section with Image Carousel
@@ -57,42 +67,42 @@ const HeroSection = () => {
     <section
       style={{
         background:
-          'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%)',
-        color: 'white',
-        padding: '100px 24px 120px',
-        position: 'relative',
-        overflow: 'hidden',
+          "linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #818cf8 100%)",
+        color: "white",
+        padding: "100px 24px 120px",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       {/* Decorative circles */}
       <div
         style={{
-          position: 'absolute',
-          top: '-100px',
-          right: '-100px',
-          width: '400px',
-          height: '400px',
-          background: 'rgba(255,255,255,0.08)',
-          borderRadius: '50%',
+          position: "absolute",
+          top: "-100px",
+          right: "-100px",
+          width: "400px",
+          height: "400px",
+          background: "rgba(255,255,255,0.08)",
+          borderRadius: "50%",
         }}
       />
       <div
         style={{
-          position: 'absolute',
-          bottom: '-150px',
-          left: '-50px',
-          width: '300px',
-          height: '300px',
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '50%',
+          position: "absolute",
+          bottom: "-150px",
+          left: "-50px",
+          width: "300px",
+          height: "300px",
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: "50%",
         }}
       />
 
       <div
         style={{
           maxWidth: 1200,
-          margin: '0 auto',
-          position: 'relative',
+          margin: "0 auto",
+          position: "relative",
           zIndex: 1,
         }}
       >
@@ -100,9 +110,9 @@ const HeroSection = () => {
           <Col xs={24} lg={14}>
             <div
               style={{
-                display: 'inline-block',
-                padding: '6px 16px',
-                background: 'rgba(255,255,255,0.15)',
+                display: "inline-block",
+                padding: "6px 16px",
+                background: "rgba(255,255,255,0.15)",
                 borderRadius: 20,
                 fontSize: 13,
                 marginBottom: 24,
@@ -113,8 +123,8 @@ const HeroSection = () => {
             <Title
               level={1}
               style={{
-                color: 'white',
-                fontSize: 'clamp(32px, 5vw, 52px)',
+                color: "white",
+                fontSize: "clamp(32px, 5vw, 52px)",
                 lineHeight: 1.2,
                 marginBottom: 24,
               }}
@@ -124,7 +134,7 @@ const HeroSection = () => {
             </Title>
             <Paragraph
               style={{
-                color: 'rgba(255,255,255,0.9)',
+                color: "rgba(255,255,255,0.9)",
                 fontSize: 18,
                 lineHeight: 1.7,
                 maxWidth: 500,
@@ -135,14 +145,14 @@ const HeroSection = () => {
               welfare of senior citizens in Zamboanga City. Register now and
               enjoy your benefits.
             </Paragraph>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <Link to="/apply">
                 <Button
                   size="large"
                   style={{
-                    background: 'white',
-                    color: '#4338ca',
-                    border: 'none',
+                    background: "white",
+                    color: "#4338ca",
+                    border: "none",
                     height: 50,
                     paddingInline: 32,
                     fontWeight: 600,
@@ -157,8 +167,8 @@ const HeroSection = () => {
                   size="large"
                   ghost
                   style={{
-                    color: 'white',
-                    borderColor: 'rgba(255,255,255,0.5)',
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.5)",
                     height: 50,
                     paddingInline: 32,
                     fontWeight: 500,
@@ -170,24 +180,24 @@ const HeroSection = () => {
               </Link>
             </div>
           </Col>
-          <Col xs={24} lg={10} style={{ textAlign: 'center' }}>
+          <Col xs={24} lg={10} style={{ textAlign: "center" }}>
             {/* Image Carousel */}
             <div
               style={{
-                  position: 'relative',
-                  width: '100%',
+                position: "relative",
+                width: "100%",
                 maxWidth: 400,
-                  margin: '0 auto',
+                margin: "0 auto",
               }}
             >
               <div
                 style={{
-                  width: '100%',
+                  width: "100%",
                   height: 300,
                   borderRadius: 20,
                   overflow: "hidden",
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-                  position: 'relative',
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+                  position: "relative",
                 }}
               >
                 {carouselImages.map((img, index) => (
@@ -196,14 +206,14 @@ const HeroSection = () => {
                     src={img}
                     alt={`Senior Citizens Event ${index + 1}`}
                     style={{
-                      position: 'absolute',
+                      position: "absolute",
                       top: 0,
                       left: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
                       opacity: currentImage === index ? 1 : 0,
-                      transition: 'opacity 0.8s ease-in-out',
+                      transition: "opacity 0.8s ease-in-out",
                     }}
                   />
                 ))}
@@ -212,50 +222,50 @@ const HeroSection = () => {
               <button
                 onClick={goToPrev}
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   left: -20,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(255,255,255,0.9)',
-                  border: 'none',
-                  borderRadius: '50%',
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "rgba(255,255,255,0.9)",
+                  border: "none",
+                  borderRadius: "50%",
                   width: 40,
                   height: 40,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                 }}
               >
-                <LeftOutlined style={{ color: '#4338ca' }} />
+                <LeftOutlined style={{ color: "#4338ca" }} />
               </button>
               <button
                 onClick={goToNext}
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   right: -20,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'rgba(255,255,255,0.9)',
-                  border: 'none',
-                  borderRadius: '50%',
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "rgba(255,255,255,0.9)",
+                  border: "none",
+                  borderRadius: "50%",
                   width: 40,
                   height: 40,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                 }}
               >
-                <RightOutlined style={{ color: '#4338ca' }} />
+                <RightOutlined style={{ color: "#4338ca" }} />
               </button>
               {/* Dots indicator */}
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
+                  display: "flex",
+                  justifyContent: "center",
                   gap: 8,
                   marginTop: 16,
                 }}
@@ -270,10 +280,10 @@ const HeroSection = () => {
                       borderRadius: 4,
                       background:
                         currentImage === index
-                          ? 'white'
-                          : 'rgba(255,255,255,0.4)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
+                          ? "white"
+                          : "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
                     }}
                   />
                 ))}
@@ -294,7 +304,7 @@ const StatsSection = () => {
     const fetchStats = async () => {
       try {
         const API_URL =
-          import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+          import.meta.env.VITE_API_URL || "http://localhost:8000/api";
         const response = await fetch(`${API_URL}/public/stats`);
         const data = await response.json();
         if (data.data) {
@@ -305,7 +315,7 @@ const StatsSection = () => {
           });
         }
       } catch (error) {
-        console.error('Failed to fetch stats:', error);
+        console.error("Failed to fetch stats:", error);
       }
     };
     fetchStats();
@@ -314,58 +324,58 @@ const StatsSection = () => {
   return (
     <section
       style={{
-        padding: '0 24px',
+        padding: "0 24px",
         marginTop: -60,
-        position: 'relative',
+        position: "relative",
         zIndex: 2,
       }}
     >
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
         <Card
           style={{
             borderRadius: 16,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+            boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
           }}
         >
           <Row gutter={[32, 24]}>
             <Col xs={24} sm={8}>
               <Statistic
                 title={
-                  <span style={{ color: '#6b7280' }}>Registered Seniors</span>
+                  <span style={{ color: "#6b7280" }}>Registered Seniors</span>
                 }
                 value={stats.seniors}
                 prefix={
-                  <TeamOutlined style={{ color: '#4338ca', marginRight: 8 }} />
+                  <TeamOutlined style={{ color: "#4338ca", marginRight: 8 }} />
                 }
-                valueStyle={{ color: '#1f2937', fontWeight: 700 }}
+                valueStyle={{ color: "#1f2937", fontWeight: 700 }}
               />
             </Col>
             <Col xs={24} sm={8}>
               <Statistic
                 title={
-                  <span style={{ color: '#6b7280' }}>IDs Issued This Year</span>
+                  <span style={{ color: "#6b7280" }}>IDs Issued This Year</span>
                 }
                 value={stats.approved}
                 prefix={
                   <IdcardOutlined
-                    style={{ color: '#059669', marginRight: 8 }}
+                    style={{ color: "#059669", marginRight: 8 }}
                   />
                 }
-                valueStyle={{ color: '#1f2937', fontWeight: 700 }}
+                valueStyle={{ color: "#1f2937", fontWeight: 700 }}
               />
             </Col>
             <Col xs={24} sm={8}>
               <Statistic
                 title={
-                  <span style={{ color: '#6b7280' }}>Benefits Claimed</span>
+                  <span style={{ color: "#6b7280" }}>Benefits Claimed</span>
                 }
                 value={stats.claimed}
                 prefix={
                   <SafetyCertificateOutlined
-                    style={{ color: '#dc2626', marginRight: 8 }}
+                    style={{ color: "#dc2626", marginRight: 8 }}
                   />
                 }
-                valueStyle={{ color: '#1f2937', fontWeight: 700 }}
+                valueStyle={{ color: "#1f2937", fontWeight: 700 }}
               />
             </Col>
           </Row>
@@ -379,36 +389,36 @@ const StatsSection = () => {
 const ServicesPreview = () => {
   const services = [
     {
-      icon: <IdcardOutlined style={{ fontSize: 32, color: '#4338ca' }} />,
-      title: 'Senior Citizen ID',
+      icon: <IdcardOutlined style={{ fontSize: 32, color: "#4338ca" }} />,
+      title: "Senior Citizen ID",
       description:
-        'Register and get your official OSCA ID to access benefits and privileges.',
+        "Register and get your official OSCA ID to access benefits and privileges.",
     },
     {
       icon: (
-        <SafetyCertificateOutlined style={{ fontSize: 32, color: '#059669' }} />
+        <SafetyCertificateOutlined style={{ fontSize: 32, color: "#059669" }} />
       ),
-      title: 'Benefits & Discounts',
+      title: "Benefits & Discounts",
       description:
-        '20% discount on medicine, restaurants, transportation, and more.',
+        "20% discount on medicine, restaurants, transportation, and more.",
     },
     {
-      icon: <FileTextOutlined style={{ fontSize: 32, color: '#dc2626' }} />,
-      title: 'File Complaints',
+      icon: <FileTextOutlined style={{ fontSize: 32, color: "#dc2626" }} />,
+      title: "File Complaints",
       description:
-        'Report violations of RA 9994 and protect your rights as a senior citizen.',
+        "Report violations of RA 9994 and protect your rights as a senior citizen.",
     },
   ];
 
   return (
-    <section style={{ padding: '80px 24px', background: 'white' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 48 }}>
+    <section style={{ padding: "80px 24px", background: "white" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
           <Text
             style={{
-              color: '#4338ca',
+              color: "#4338ca",
               fontWeight: 600,
-              textTransform: 'uppercase',
+              textTransform: "uppercase",
               letterSpacing: 1,
               fontSize: 13,
             }}
@@ -420,10 +430,10 @@ const ServicesPreview = () => {
           </Title>
           <Paragraph
             style={{
-              color: '#6b7280',
+              color: "#6b7280",
               fontSize: 16,
               maxWidth: 600,
-              margin: '0 auto',
+              margin: "0 auto",
             }}
           >
             OSCA provides various services and programs for the welfare of
@@ -436,9 +446,9 @@ const ServicesPreview = () => {
               <Card
                 hoverable
                 style={{
-                  height: '100%',
+                  height: "100%",
                   borderRadius: 12,
-                  border: '1px solid #e5e7eb',
+                  border: "1px solid #e5e7eb",
                 }}
                 bodyStyle={{ padding: 32 }}
               >
@@ -446,11 +456,11 @@ const ServicesPreview = () => {
                   style={{
                     width: 64,
                     height: 64,
-                    background: '#eef2ff',
+                    background: "#eef2ff",
                     borderRadius: 12,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     marginBottom: 20,
                   }}
                 >
@@ -459,16 +469,16 @@ const ServicesPreview = () => {
                 <Title level={4} style={{ marginBottom: 12 }}>
                   {service.title}
                 </Title>
-                <Paragraph style={{ color: '#6b7280', marginBottom: 0 }}>
+                <Paragraph style={{ color: "#6b7280", marginBottom: 0 }}>
                   {service.description}
                 </Paragraph>
               </Card>
             </Col>
           ))}
         </Row>
-        <div style={{ textAlign: 'center', marginTop: 40 }}>
+        <div style={{ textAlign: "center", marginTop: 40 }}>
           <Link to="/services">
-            <Button type="link" style={{ color: '#4338ca', fontWeight: 600 }}>
+            <Button type="link" style={{ color: "#4338ca", fontWeight: 600 }}>
               View All Services <RightOutlined />
             </Button>
           </Link>
@@ -482,7 +492,7 @@ const ServicesPreview = () => {
 const AnnouncementsPreview = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // MODAL STATES
   const [selectedItem, setSelectedItem] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -497,7 +507,7 @@ const AnnouncementsPreview = () => {
         const mapped = apiData.slice(0, 3).map((item) => ({
           id: item.id,
           title: item.title,
-          type: item.type?.name?.toLowerCase() || 'news',
+          type: item.type?.name?.toLowerCase() || "news",
           date: item.event_date || item.published_at || item.created_at,
           content: item.description || item.content, // Full content for modal
           location: item.location,
@@ -507,7 +517,7 @@ const AnnouncementsPreview = () => {
 
         setAnnouncements(mapped);
       } catch (error) {
-        console.error('Failed to load announcements preview', error);
+        console.error("Failed to load announcements preview", error);
       } finally {
         setLoading(false);
       }
@@ -527,32 +537,58 @@ const AnnouncementsPreview = () => {
   };
 
   const getTypeColor = (type) => {
-    const colors = { event: '#4338ca', notice: '#059669', advisory: '#dc2626' };
-    return colors[type] || '#6b7280';
+    const colors = { event: "#4338ca", notice: "#059669", advisory: "#dc2626" };
+    return colors[type] || "#6b7280";
   };
 
   // Helper for image paths
-  const getImageUrl = (path) => `${import.meta.env.VITE_API_URL}/storage/${path}`;
+  const getImageUrl = (filePath) => {
+    if (!filePath) return "";
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+    return `${cleanBaseUrl}/storage/${filePath}`;
+  };
 
   return (
-    <section style={{ padding: '80px 24px', background: '#f9fafb' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+    <section style={{ padding: "80px 24px", background: "#f9fafb" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 32,
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
           <div>
-            <Text style={{ color: '#4338ca', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, fontSize: 13 }}>
+            <Text
+              style={{
+                color: "#4338ca",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontSize: 13,
+              }}
+            >
               Stay Updated
             </Text>
-            <Title level={2} style={{ marginTop: 8, marginBottom: 0 }}>Latest Announcements</Title>
+            <Title level={2} style={{ marginTop: 8, marginBottom: 0 }}>
+              Latest Announcements
+            </Title>
           </div>
           <Link to="/news">
-            <Button style={{ borderRadius: 8, borderColor: '#d1d5db' }}>
+            <Button style={{ borderRadius: 8, borderColor: "#d1d5db" }}>
               View All <RightOutlined />
             </Button>
           </Link>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+          <div style={{ textAlign: "center", padding: 60 }}>
+            <Spin size="large" />
+          </div>
         ) : (
           <Row gutter={[24, 24]}>
             {announcements.map((item) => (
@@ -560,26 +596,56 @@ const AnnouncementsPreview = () => {
                 <Card
                   hoverable
                   onClick={() => handleOpenModal(item)} // CLICK TO OPEN MODAL
-                  style={{ height: '100%', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}
+                  style={{
+                    height: "100%",
+                    borderRadius: 12,
+                    border: "1px solid #e5e7eb",
+                    overflow: "hidden",
+                  }}
                   bodyStyle={{ padding: 24 }}
-                  cover={item.media?.length > 0 ? (
-                    <img 
-                      alt="cover" 
-                      src={getImageUrl(item.media[0].file_path)} 
-                      style={{ height: 180, objectFit: 'cover' }}
-                    />
-                  ) : null}
+                  cover={
+                    item.media?.length > 0 ? (
+                      <img
+                        alt="cover"
+                        src={getImageUrl(item.media[0].file_path)}
+                        style={{ height: 180, objectFit: "cover" }}
+                      />
+                    ) : null
+                  }
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <span style={{ padding: '2px 10px', background: `${getTypeColor(item.type)}15`, color: getTypeColor(item.type), borderRadius: 4, fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <span
+                      style={{
+                        padding: "2px 10px",
+                        background: `${getTypeColor(item.type)}15`,
+                        color: getTypeColor(item.type),
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textTransform: "capitalize",
+                      }}
+                    >
                       {item.type}
                     </span>
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>
-                      <CalendarOutlined /> {dayjs(item.date).format('MMM D, YYYY')}
+                    <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                      <CalendarOutlined />{" "}
+                      {dayjs(item.date).format("MMM D, YYYY")}
                     </span>
                   </div>
-                  <Title level={5} style={{ marginBottom: 8 }}>{item.title}</Title>
-                  <Paragraph style={{ color: '#6b7280', marginBottom: 0, fontSize: 14 }} ellipsis={{ rows: 2 }}>
+                  <Title level={5} style={{ marginBottom: 8 }}>
+                    {item.title}
+                  </Title>
+                  <Paragraph
+                    style={{ color: "#6b7280", marginBottom: 0, fontSize: 14 }}
+                    ellipsis={{ rows: 2 }}
+                  >
                     {item.content}
                   </Paragraph>
                 </Card>
@@ -594,37 +660,90 @@ const AnnouncementsPreview = () => {
         title={null}
         open={isModalVisible}
         onCancel={handleCloseModal}
-        footer={[<Button key="close" onClick={handleCloseModal}>Close</Button>]}
+        footer={[
+          <Button key="close" onClick={handleCloseModal}>
+            Close
+          </Button>,
+        ]}
         width={800}
         centered
         destroyOnClose
-        getContainer={false} 
-        blockScroll={false} 
+        getContainer={false}
+        blockScroll={false}
       >
         {selectedItem && (
-          <div style={{ padding: '10px 0' }}>
+          <div style={{ padding: "10px 0" }}>
             <Title level={3}>{selectedItem.title}</Title>
-            
-            <Space style={{ marginBottom: 16 }} split={<Divider type="vertical" />}>
+
+            <Space
+              style={{ marginBottom: 16 }}
+              split={<Divider type="vertical" />}
+            >
               <Tag color="blue">{selectedItem.type?.toUpperCase()}</Tag>
               <Text type="secondary">
-                <CalendarOutlined /> {dayjs(selectedItem.date).format('MMMM D, YYYY')}
+                <CalendarOutlined />{" "}
+                {dayjs(selectedItem.date).format("MMMM D, YYYY")}
               </Text>
             </Space>
 
-            {/* Image Gallery */}
+            {/* Image & Document Attachments */}
             {selectedItem.media?.length > 0 && (
-              <div style={{ marginBottom: 24, textAlign: 'center', background: '#f5f5f5', borderRadius: 8, padding: 10 }}>
+              <div
+                style={{
+                  marginBottom: 24,
+                  textAlign: "center",
+                  background: "#f5f5f5",
+                  borderRadius: 8,
+                  padding: 10,
+                }}
+              >
                 <Image.PreviewGroup>
                   <Row gutter={[8, 8]} justify="center">
-                    {selectedItem.media.map((file, index) => (
-                      <Col key={file.id} span={index === 0 ? 24 : 6}>
-                        <Image
-                          style={{ maxHeight: index === 0 ? 400 : 120, objectFit: 'cover', borderRadius: 8, width: '100%' }}
-                          src={getImageUrl(file.file_path)}
-                        />
-                      </Col>
-                    ))}
+                    {selectedItem.media.map((file, index) => {
+                      const fileUrl = getImageUrl(file.file_path);
+                      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(
+                        file.file_path,
+                      );
+
+                      return (
+                        <Col
+                          key={file.id || index}
+                          span={index === 0 && isImage ? 24 : 6}
+                        >
+                          {isImage ? (
+                            <Image
+                              style={{
+                                maxHeight: index === 0 ? 400 : 120,
+                                objectFit: "cover",
+                                borderRadius: 8,
+                                width: "100%",
+                              }}
+                              src={fileUrl}
+                            />
+                          ) : (
+                            <Button
+                              type="primary"
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                minHeight: "120px",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              }}
+                            >
+                              View/Download
+                              <br />
+                              Attachment
+                            </Button>
+                          )}
+                        </Col>
+                      );
+                    })}
                   </Row>
                 </Image.PreviewGroup>
               </div>
@@ -632,17 +751,28 @@ const AnnouncementsPreview = () => {
 
             {/* Event Info Card */}
             {(selectedItem.location || selectedItem.target_audience) && (
-              <Card size="small" style={{ marginBottom: 20, background: '#fafafa', border: 'none' }}>
+              <Card
+                size="small"
+                style={{
+                  marginBottom: 20,
+                  background: "#fafafa",
+                  border: "none",
+                }}
+              >
                 <Row gutter={16}>
                   {selectedItem.location && (
                     <Col span={12}>
-                      <Text strong><EnvironmentOutlined /> Location</Text>
+                      <Text strong>
+                        <EnvironmentOutlined /> Location
+                      </Text>
                       <Paragraph>{selectedItem.location}</Paragraph>
                     </Col>
                   )}
                   {selectedItem.target_audience && (
                     <Col span={12}>
-                      <Text strong><InfoCircleOutlined /> Who can attend</Text>
+                      <Text strong>
+                        <InfoCircleOutlined /> Who can attend
+                      </Text>
                       <Paragraph>{selectedItem.target_audience}</Paragraph>
                     </Col>
                   )}
@@ -651,8 +781,14 @@ const AnnouncementsPreview = () => {
             )}
 
             <Divider />
-            
-            <Paragraph style={{ fontSize: 16, lineHeight: '1.8', whiteSpace: 'pre-wrap' }}>
+
+            <Paragraph
+              style={{
+                fontSize: 16,
+                lineHeight: "1.8",
+                whiteSpace: "pre-wrap",
+              }}
+            >
               {selectedItem.content}
             </Paragraph>
           </div>
@@ -666,17 +802,17 @@ const AnnouncementsPreview = () => {
 const CTASection = () => (
   <section
     style={{
-      padding: '80px 24px',
-      background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
+      padding: "80px 24px",
+      background: "linear-gradient(135deg, #4338ca 0%, #6366f1 100%)",
     }}
   >
-    <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
-      <Title level={2} style={{ color: 'white', marginBottom: 16 }}>
+    <div style={{ maxWidth: 800, margin: "0 auto", textAlign: "center" }}>
+      <Title level={2} style={{ color: "white", marginBottom: 16 }}>
         Ready to Get Your Senior Citizen ID?
       </Title>
       <Paragraph
         style={{
-          color: 'rgba(255,255,255,0.9)',
+          color: "rgba(255,255,255,0.9)",
           fontSize: 18,
           marginBottom: 32,
         }}
@@ -688,9 +824,9 @@ const CTASection = () => (
         <Button
           size="large"
           style={{
-            background: 'white',
-            color: '#4338ca',
-            border: 'none',
+            background: "white",
+            color: "#4338ca",
+            border: "none",
             height: 54,
             paddingInline: 40,
             fontWeight: 600,

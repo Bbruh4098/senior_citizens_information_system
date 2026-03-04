@@ -98,16 +98,20 @@ const News = () => {
   );
 
   // Helper to get image URL
+  // Helper to get image URL
   const getImageUrl = (filePath) => {
-  if (!filePath) return '';
-  
-  // If the database path accidentally contains 'public/', remove it
-  const cleanPath = filePath.replace(/^public\//, '');
-  
-  // Ensure the base URL is correct (Check your .env VITE_API_URL)
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  
-  return `${baseUrl}/storage/${cleanPath}`;
+    if (!filePath) return "";
+
+    // 1. Ensure the base URL is correct (e.g., http://localhost:8000)
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+    // 2. Clean the base URL of any trailing slashes
+    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+
+    // 3. Combine them to match the working URL: /storage/uploads/...
+    // Note: Since your DB stores 'uploads/announcements/...', 
+    // we just need to prefix it with /storage/
+    return `${cleanBaseUrl}/storage/${filePath}`;
   };
 
   return (
@@ -268,14 +272,14 @@ const News = () => {
         open={isModalVisible}
         onCancel={handleCloseModal}
         footer={[
-        <Button key="close" onClick={handleCloseModal}>
-          Close
-        </Button>,
+          <Button key="close" onClick={handleCloseModal}>
+            Close
+          </Button>,
         ]}
         width={800}
         centered
         destroyOnClose
-        getContainer={false} 
+        getContainer={false}
         blockScroll={false}
       >
         {selectedItem && (
@@ -293,7 +297,7 @@ const News = () => {
               </Text>
             </Space>
 
-            {/* Image Gallery */}
+            {/* Image & Document Attachments */}
             {selectedItem.media?.length > 0 && (
               <div
                 style={{
@@ -306,19 +310,51 @@ const News = () => {
               >
                 <Image.PreviewGroup>
                   <Row gutter={[8, 8]} justify="center">
-                    {selectedItem.media.map((file, index) => (
-                      <Col key={file.id} span={index === 0 ? 24 : 6}>
-                        <Image
-                          style={{
-                            maxHeight: index === 0 ? 400 : 120,
-                            objectFit: "cover",
-                            borderRadius: 8,
-                            width: "100%",
-                          }}
-                          src={getImageUrl(file.file_path)}
-                        />
-                      </Col>
-                    ))}
+                    {selectedItem.media.map((file, index) => {
+                      const fileUrl = getImageUrl(file.file_path);
+                      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(
+                        file.file_path,
+                      );
+
+                      return (
+                        <Col
+                          key={file.id || index}
+                          span={index === 0 && isImage ? 24 : 6}
+                        >
+                          {isImage ? (
+                            <Image
+                              style={{
+                                maxHeight: index === 0 ? 400 : 120,
+                                objectFit: "cover",
+                                borderRadius: 8,
+                                width: "100%",
+                              }}
+                              src={fileUrl}
+                            />
+                          ) : (
+                            <Button
+                              type="primary"
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                minHeight: "120px",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                                alignItems: "center",
+                              }}
+                            >
+                              View/Download
+                              <br />
+                              Attachment
+                            </Button>
+                          )}
+                        </Col>
+                      );
+                    })}
                   </Row>
                 </Image.PreviewGroup>
               </div>
