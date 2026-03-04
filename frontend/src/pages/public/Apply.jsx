@@ -439,7 +439,7 @@ const Apply = () => {
                 textAlign: 'center',
             }}>
                 <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                    <Title level={1} style={{ color: 'white', marginBottom: 16 }}>Apply Online</Title>
+                    <Title level={1} style={{ color: 'white', marginBottom: 16 }}>Pre-Registration</Title>
                     <Paragraph style={{ color: 'rgba(255,255,255,0.9)', fontSize: 18 }}>
                         Pre-register for your Senior Citizen ID online. Complete this form and visit our office with your documents.
                     </Paragraph>

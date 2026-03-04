@@ -83,7 +83,7 @@ const AdminLayout = () => {
         {
             key: '/admin/pre-registrations',
             icon: <FileTextOutlined />,
-            label: 'Online Applications',
+            label: 'Online  Pre-Registrations',
         },
         {
             key: '/admin/seniors',

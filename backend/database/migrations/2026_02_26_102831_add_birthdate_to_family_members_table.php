@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('family_members', function (Blueprint $table) {
-            $table->date('birthdate')->nullable()->after('extension');
+            if (!Schema::hasColumn('family_members', 'birthdate')) {
+                $table->date('birthdate')->nullable()->after('extension');
+            }
         });
     }
 

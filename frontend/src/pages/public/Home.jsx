@@ -631,7 +631,7 @@ const CTASection = () => (
           marginBottom: 32,
         }}
       >
-        Apply online now and visit your nearest OSCA office to complete your
+        Pre-register now and visit your nearest OSCA office to complete your
         registration.
       </Paragraph>
       <Link to="/apply">
@@ -648,7 +648,7 @@ const CTASection = () => (
             fontSize: 16,
           }}
         >
-          Apply Now <ArrowRightOutlined />
+          Pre-Register Now <ArrowRightOutlined />
         </Button>
       </Link>
     </div>

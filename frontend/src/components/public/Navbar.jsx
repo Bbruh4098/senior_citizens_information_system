@@ -84,7 +84,7 @@ const Navbar = () => {
                                 fontWeight: 600,
                             }}
                         >
-                            Apply Online
+                            Pre-register
                         </Button>
                     </Link>
                     <Link to="/senior/login">
@@ -100,7 +100,7 @@ const Navbar = () => {
                             icon={<UserOutlined />}
                             style={{ borderRadius: 8 }}
                         >
-                            Staff Login
+                            {/* Staff Login */}
                         </Button>
                     </Link>
                 </div>
