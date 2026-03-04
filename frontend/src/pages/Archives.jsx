@@ -219,7 +219,7 @@ const Archives = () => {
               <Option value="transferred">Transferred</Option>
               <Option value="other">Other</Option>
             </Select>
-          </Col>
+            </Col>
           <Col xs={24} md={6}>
             <RangePicker
               style={{ width: "100%" }}
@@ -311,7 +311,7 @@ const Archives = () => {
                   : "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Archived By">
-                {selected.archived_by_name || "-"}
+                {selected.archived_by_name || "Main Admin"}
               </Descriptions.Item>
               {selected.barangay && (
                 <Descriptions.Item label="Barangay">

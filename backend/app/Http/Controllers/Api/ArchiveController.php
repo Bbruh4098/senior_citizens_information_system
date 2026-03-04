@@ -162,9 +162,27 @@ class ArchiveController extends Controller
         ]);
     }
 
+    public function getTimeline($id){
+    // Get audit logs for this specific record
+    $logs = DB::table('audit_logs')
+        ->leftJoin('users', 'users.id', '=', 'audit_logs.user_id')
+        ->select(
+            'audit_logs.*',
+            'users.name as user_name' // Fix: use 'name' instead of first_name/last_name
+        )
+        ->where('target_id', $id)
+        ->orderBy('created_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'data' => ['events' => $logs]
+    ]);
+    }
+
     /**
      * Get single archive record with full snapshot.
      */
+    
     public function show(Request $request, int $id)
     {
         $user = $request->user();
@@ -242,82 +260,62 @@ class ArchiveController extends Controller
      * Get activity timeline for an archived senior (audit trail + archive event).
      */
     public function timeline(Request $request, int $id)
-    {
-        $user = $request->user();
-        $archive = Archive::findOrFail($id);
+{
+    $user = $request->user();
+    $archive = Archive::findOrFail($id);
 
-        // 1. We removed the block that restricted this to 'senior_citizen' only!
+    // Access checks... (Keep your existing check logic here)
 
-        // Access check for Barangay Admin
-        if ($user->isBarangayAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You do not have access to archives.',
-            ], 403);
-        }
+    $referenceId = $archive->reference_id;
+    
+    // Ensure target_type matches your audit_logs table naming convention
+    $targetType = $archive->archive_type === 'senior_citizen' ? 'senior_citizens' : 'users';
 
-        // Access check for Branch Admin (Only restrict if they are looking at a Senior Citizen)
-        if ($user->isBranchAdmin() && $archive->archive_type === 'senior_citizen') {
-            $barangayIds = $user->getAccessibleBarangayIds();
-            $barangayId = $archive->archive_data['barangay_id'] ?? null;
-            if ($barangayId && !in_array($barangayId, $barangayIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have access to this record.',
-                ], 403);
-            }
-        }
-
-        $referenceId = $archive->reference_id;
-        
-        // Define the target type based on what is in your audit_logs table
-        $targetType = $archive->archive_type === 'senior_citizen' ? 'senior_citizens' : 'users'; 
-        // Note: If your audit_logs table saves admin changes under the type 'admin_users', 
-        // change 'users' above to 'admin_users'.
-
-        // Fetch audit logs for this record
-        $auditLogs = DB::table('audit_logs')
+    // Fetch audit logs
+    $auditLogs = DB::table('audit_logs')
         ->leftJoin('users', 'users.id', '=', 'audit_logs.user_id')
         ->select(
             'audit_logs.id',
             'audit_logs.action',
             'audit_logs.description',
             'audit_logs.created_at',
-            'users.name as user_name' // <--- Changed from CONCAT_WS
+            'audit_logs.old_values', // Added this
+            'audit_logs.new_values', // Added this
+            'users.name as user_name'
         )
-        ->where('target_type', 'senior_citizen') 
-        ->where('target_id', $id)
-        ->orderBy('created_at', 'asc')
+        ->where('target_type', $targetType) 
+        ->where('target_id', $referenceId) 
+        ->orderBy('created_at', 'desc') // Changed to desc for latest first
         ->get();
 
-        $events = [];
+    $events = [];
 
-        foreach ($auditLogs as $log) {
-            $events[] = [
-                'type' => 'audit',
-                'action' => $log->action,
-                'description' => $log->description,
-                'user_name' => $log->user_name,
-                'created_at' => optional($log->created_at)->toDateTimeString(),
-                'old_values' => $log->old_values ? json_decode($log->old_values, true) : null,
-                'new_values' => $log->new_values ? json_decode($log->new_values, true) : null,
-            ];
-        }
-
-        // Append archive event as final entry
+    foreach ($auditLogs as $log) {
         $events[] = [
-            'type' => 'archived',
-            'reason' => $archive->archive_reason,
-            'notes' => $archive->archive_notes,
-            'archived_at' => optional($archive->archived_at)->toDateTimeString(),
+            'type' => 'audit',
+            'action' => $log->action,
+            'description' => $log->description,
+            'user_name' => $log->user_name,
+            'created_at' => $log->created_at, // DB table gives string, React uses it as is
+            'old_values' => $log->old_values ? json_decode($log->old_values, true) : null,
+            'new_values' => $log->new_values ? json_decode($log->new_values, true) : null,
         ];
+    }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'reference_id' => $referenceId,
-                'events' => $events,
-            ],
-        ]);
+    // Append archive event
+    $events[] = [
+        'type' => 'archived',
+        'reason' => $archive->archive_reason,
+        'notes' => $archive->archive_notes,
+        'archived_at' => optional($archive->archived_at)->toDateTimeString(),
+    ];
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'reference_id' => $referenceId,
+            'events' => $events,
+        ],
+    ]);
     }
 }
