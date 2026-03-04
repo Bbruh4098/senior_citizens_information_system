@@ -21,6 +21,7 @@ import {
   FolderOutlined,
   SearchOutlined,
   ClockCircleOutlined,
+  SyncOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { archivesApi } from "../services/api";
@@ -120,6 +121,21 @@ const Archives = () => {
   fetchArchives(1, pagination.pageSize, newFilters);
   };
 
+  const handleReset = () => {
+  const initialFilters = {
+    search: "",
+    reason: undefined,
+    archive_type: undefined,
+    from_date: undefined, // Or archived_date if you changed it
+    to_date: undefined,
+  };
+  
+  setFilters(initialFilters);
+  
+  // Reset pagination to page 1 and fetch with empty filters
+  fetchArchives(1, pagination.pageSize, initialFilters);
+  };
+
   const applyFilters = () => {
     fetchArchives(1, pagination.pageSize);
   };
@@ -217,53 +233,72 @@ const Archives = () => {
       </div>
 
       <Card style={{ marginBottom: 16, borderRadius: 8 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} md={6}>
-            <Input
-              placeholder="Search by name or OSCA ID"
-              prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
-              allowClear
-              value={filters.search} // This is important for the "Clear" button to work
-              onChange={handleSearchChange}
-              onPressEnter={() => fetchArchives(1, pagination.pageSize)}
-              style={{ width: "100%" }}
-            />
-          </Col>
-          <Col xs={12} md={5}>
-            <Select
-              placeholder="Archive type"
-              value={filters.archive_type || ""} // 3. Updated Select to handle empty/All state
-              style={{ width: "100%" }}
-              onChange={handleTypeChange}
-            >
-              <Option value="">All Types</Option>
-              <Option value="senior_citizen">Senior Citizens</Option>
-              <Option value="admin_user">Admin Users</Option>
-            </Select>
-          </Col>
-          <Col xs={12} md={5}>
-            <Select
-              placeholder="Reason"
-              value={filters.reason || ""} // Syncs with state: empty string shows "All"
-              allowClear
-              style={{ width: "100%" }}
-              onChange={handleReasonChange}
-            >
-              <Option value="">All Reasons</Option> {/* Added All option */}
-              <Option value="deceased">Deceased</Option>
-              <Option value="deactivated">Deactivated</Option>
-              <Option value="transferred">Transferred</Option>
-              <Option value="other">Other</Option>
-            </Select>
-            </Col>
-          <Col xs={24} md={6}>
-            <RangePicker
-              style={{ width: "100%" }}
-              onChange={handleDateRangeChange}
-            />
-          </Col>
-          <Col xs={24} md={2} style={{ textAlign: "right" }}>
-            
+  <Row gutter={[16, 16]} align="middle">
+    {/* Search Input */}
+    <Col xs={24} md={5}>
+      <Input
+        placeholder="Search by name or OSCA/Emp ID"
+        prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
+        allowClear
+        value={filters.search}
+        onChange={handleSearchChange}
+        onPressEnter={() => fetchArchives(1, pagination.pageSize)}
+        style={{ width: "100%" }}
+      />
+    </Col>
+
+    {/* Archive Type Select */}
+    <Col xs={12} md={4}>
+      <Select
+        placeholder="Archive type"
+        value={filters.archive_type || ""}
+        style={{ width: "100%" }}
+        onChange={handleTypeChange}
+      >
+        <Option value="">All Types</Option>
+        <Option value="senior_citizen">Senior Citizens</Option>
+        <Option value="admin_user">Admin Users</Option>
+      </Select>
+    </Col>
+
+    {/* Reason Select */}
+    <Col xs={12} md={4}>
+      <Select
+        placeholder="Reason"
+        value={filters.reason || ""}
+        allowClear
+        style={{ width: "100%" }}
+        onChange={handleReasonChange}
+      >
+        <Option value="">All Reasons</Option>
+        <Option value="deceased">Deceased</Option>
+        <Option value="deactivated">Deactivated</Option>
+        <Option value="transferred">Transferred</Option>
+        <Option value="other">Other</Option>
+      </Select>
+    </Col>
+
+    {/* Date Range Picker */}
+    <Col xs={24} md={6}>
+      <RangePicker
+        style={{ width: "100%" }}
+        // The key forces the component to re-render and clear text when reset is clicked
+        key={filters.from_date ? 'active' : 'reset'} 
+        onChange={handleDateRangeChange}
+        value={filters.from_date ? [dayjs(filters.from_date), dayjs(filters.to_date)] : null}
+      />
+    </Col>
+
+    {/* The New Reset Button */}
+    <Col xs={24} md={5}>
+      <Button 
+        block 
+        icon={<SyncOutlined />} 
+        onClick={handleReset}
+        type="default"
+      >
+        Reset Filters
+      </Button>
           </Col>
         </Row>
       </Card>
