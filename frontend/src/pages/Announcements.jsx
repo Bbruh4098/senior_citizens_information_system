@@ -18,6 +18,7 @@ import {
   Popconfirm,
   Upload,
   List,
+  Alert, // Added missing Alert import
 } from "antd";
 import {
   SearchOutlined,
@@ -408,131 +409,98 @@ const Announcements = () => {
             }
             style={{ marginBottom: 16 }}
           >
-            {formModal.mode === 'create' && !formModal.item ? (
+            {formModal.mode === "create" && !formModal.item ? (
               <Alert
                 message="Save the announcement first to enable media uploads."
                 type="info"
                 showIcon
               />
             ) : (
-              <Upload
-                listType="picture-card"
-                fileList={mediaList.map(m => ({
-                  uid: m.id,
-                  name: m.file_path.split('/').pop(),
-                  status: 'done',
-                  url: m.url,
-                }))}
-                customRequest={async ({ file, onSuccess, onError }) => {
-                  setMediaUploading(true);
-                  try {
-                    await announcementsApi.uploadMedia(formModal.item.id, file);
-                    onSuccess();
-                    loadMedia(formModal.item.id); // Refresh list
-                  } catch (error) {
-                    onError(error);
-                    message.error("Upload failed");
-                  } finally {
-                    setMediaUploading(false);
-                  }
-                }}
-                onRemove={async (file) => {
-                  try {
-                    await announcementsApi.deleteMedia(file.uid);
-                    message.success("Attachment deleted");
-                    return true;
-                  } catch (error) {
-                    message.error("Failed to delete attachment");
-                    return false;
-                  }
-                }}
-              >
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>Upload</div>
-                </div>
-              </Upload>
+              <>
+                <Upload
+                  multiple={false}
+                  showUploadList={false}
+                  customRequest={async ({ file, onSuccess, onError }) => {
+                    if (!formModal.item) return;
+                    setMediaUploading(true);
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    try {
+                      const res = await announcementsApi.uploadMedia(
+                        formModal.item.id,
+                        formData
+                      );
+                      const uploaded = res.data?.data;
+                      setMediaList((prev) => [...prev, uploaded]);
+                      onSuccess && onSuccess(res.data);
+                      message.success("File uploaded");
+                    } catch (err) {
+                      console.error("Upload failed", err);
+                      onError && onError(err);
+                      message.error("Failed to upload file");
+                    } finally {
+                      setMediaUploading(false);
+                    }
+                  }}
+                >
+                  <Button loading={mediaUploading} icon={<PlusOutlined />}>
+                    Upload File
+                  </Button>
+                </Upload>
+
+                <List
+                  style={{ marginTop: 16 }}
+                  locale={{ emptyText: "No attachments yet" }}
+                  dataSource={mediaList}
+                  renderItem={(item) => (
+                    <List.Item
+                      actions={[
+                        <a
+                          key="download"
+                          href={item.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          View
+                        </a>,
+                        <a
+                          key="delete"
+                          onClick={async () => {
+                            try {
+                              await announcementsApi.deleteMedia(item.id);
+                              setMediaList((prev) =>
+                                prev.filter((m) => m.id !== item.id)
+                              );
+                              message.success("Attachment deleted");
+                            } catch (e) {
+                              message.error("Failed to delete attachment");
+                            }
+                          }}
+                        >
+                          Delete
+                        </a>,
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={
+                          <span>
+                            {item.media_type?.toUpperCase()} - {item.file_path}
+                          </span>
+                        }
+                        description={
+                          item.uploaded_at
+                            ? dayjs(item.uploaded_at).format(
+                                "MMM D, YYYY HH:mm"
+                              )
+                            : ""
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              </>
             )}
           </Card>
-                multiple={false}
-                showUploadList={false}
-                customRequest={async ({ file, onSuccess, onError }) => {
-                  if (!formModal.item) return;
-                  setMediaUploading(true);
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  try {
-                    const res = await announcementsApi.uploadMedia(
-                      formModal.item.id,
-                      formData,
-                    );
-                    const uploaded = res.data?.data;
-                    setMediaList((prev) => [...prev, uploaded]);
-                    onSuccess && onSuccess(res.data);
-                    message.success("File uploaded");
-                  } catch (err) {
-                    // eslint-disable-next-line no-console
-                    console.error("Upload failed", err);
-                    onError && onError(err);
-                    message.error("Failed to upload file");
-                  } finally {
-                    setMediaUploading(false);
-                  }
-                }}
-              >
-                <Button loading={mediaUploading}>Upload File</Button>
-              </Upload>
-
-              <List
-                style={{ marginTop: 16 }}
-                locale={{ emptyText: "No attachments yet" }}
-                dataSource={mediaList}
-                renderItem={(item) => (
-                  <List.Item
-                    actions={[
-                      <a
-                        key="download"
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View
-                      </a>,
-                      <a
-                        key="delete"
-                        onClick={async () => {
-                          try {
-                            await announcementsApi.deleteMedia(item.id);
-                            setMediaList((prev) =>
-                              prev.filter((m) => m.id !== item.id),
-                            );
-                            message.success("Attachment deleted");
-                          } catch (e) {
-                            message.error("Failed to delete attachment");
-                          }
-                        }}
-                      >
-                        Delete
-                      </a>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={
-                        <span>
-                          {item.media_type.toUpperCase()} - {item.file_path}
-                        </span>
-                      }
-                      description={
-                        item.uploaded_at
-                          ? dayjs(item.uploaded_at).format("MMM D, YYYY HH:mm")
-                          : ""
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            </Card>
-          )}
 
           <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
             <Space>
