@@ -40,7 +40,7 @@ const Archives = () => {
   const [filters, setFilters] = useState({
     search: "",
     reason: undefined,
-    archive_type: "senior_citizen",
+    archive_type: undefined, // 1. Changed from "senior_citizen" to undefined
     from_date: undefined,
     to_date: undefined,
   });
@@ -54,13 +54,13 @@ const Archives = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchArchives = async (page = 1, pageSize = 10) => {
+  const fetchArchives = async (page = 1, pageSize = 10, currentFilters = filters) => {
     setLoading(true);
     try {
       const params = {
         page,
         per_page: pageSize,
-        ...filters,
+        ...currentFilters,
       };
       const response = await archivesApi.getList(params);
       const payload = response.data?.data;
@@ -70,7 +70,6 @@ const Archives = () => {
         setPagination({ current: current_page, pageSize: per_page, total });
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to load archives", error);
       message.error("Failed to load archives");
     } finally {
@@ -88,27 +87,34 @@ const Archives = () => {
   };
 
   const handleReasonChange = (value) => {
-    setFilters((prev) => ({ ...prev, reason: value || undefined }));
+  const newReason = value === "" ? undefined : (value || undefined);
+  const newFilters = { ...filters, reason: newReason };
+  setFilters(newFilters);
+  fetchArchives(1, pagination.pageSize, newFilters);
   };
 
   const handleTypeChange = (value) => {
-    setFilters((prev) => ({ ...prev, archive_type: value || undefined }));
+    // Treat empty string or null as undefined to remove the filter
+    const newType = value === "" ? undefined : (value || undefined);
+    const newFilters = { ...filters, archive_type: newType };
+    
+    setFilters(newFilters);
+    fetchArchives(1, pagination.pageSize, newFilters);
   };
 
   const handleDateRangeChange = (dates) => {
-    if (!dates || dates.length === 0) {
-      setFilters((prev) => ({
-        ...prev,
-        from_date: undefined,
-        to_date: undefined,
-      }));
-    } else {
-      setFilters((prev) => ({
-        ...prev,
-        from_date: dates[0].format("YYYY-MM-DD"),
-        to_date: dates[1].format("YYYY-MM-DD"),
-      }));
-    }
+  let newFilters;
+  if (!dates || dates.length === 0) {
+    newFilters = { ...filters, from_date: undefined, to_date: undefined };
+  } else {
+    newFilters = {
+      ...filters,
+      from_date: dates[0].format("YYYY-MM-DD"),
+      to_date: dates[1].format("YYYY-MM-DD"),
+    };
+  }
+  setFilters(newFilters);
+  fetchArchives(1, pagination.pageSize, newFilters);
   };
 
   const applyFilters = () => {
@@ -130,7 +136,6 @@ const Archives = () => {
       setSelected(detailRes.data?.data || null);
       setTimeline(timelineRes.data?.data?.events || []);
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to load archive details", error);
       message.error("Failed to load archive details");
     } finally {
@@ -146,6 +151,16 @@ const Archives = () => {
         <Button type="link" onClick={() => openDetails(record)}>
           {record.full_name || record.username}
         </Button>
+      ),
+    },
+    {
+      title: "Archive Type", // 2. Added a column so users know what type of record they are looking at
+      dataIndex: "archive_type",
+      key: "archive_type",
+      render: (type) => (
+        <Tag color={type === "senior_citizen" ? "blue" : "purple"}>
+          {type === "senior_citizen" ? "Senior Citizen" : "Admin User"}
+        </Tag>
       ),
     },
     {
@@ -181,10 +196,11 @@ const Archives = () => {
           <Col xs={12} md={5}>
             <Select
               placeholder="Archive type"
-              defaultValue="senior_citizen"
+              value={filters.archive_type || ""} // 3. Updated Select to handle empty/All state
               style={{ width: "100%" }}
               onChange={handleTypeChange}
             >
+              <Option value="">All Types</Option>
               <Option value="senior_citizen">Senior Citizens</Option>
               <Option value="admin_user">Admin Users</Option>
             </Select>
@@ -192,10 +208,12 @@ const Archives = () => {
           <Col xs={12} md={5}>
             <Select
               placeholder="Reason"
+              value={filters.reason || ""} // Syncs with state: empty string shows "All"
               allowClear
               style={{ width: "100%" }}
               onChange={handleReasonChange}
             >
+              <Option value="">All Reasons</Option> {/* Added All option */}
               <Option value="deceased">Deceased</Option>
               <Option value="deactivated">Deactivated</Option>
               <Option value="transferred">Transferred</Option>
@@ -209,9 +227,7 @@ const Archives = () => {
             />
           </Col>
           <Col xs={24} md={2} style={{ textAlign: "right" }}>
-            <Space>
-              <a onClick={applyFilters}>Apply</a>
-            </Space>
+            
           </Col>
         </Row>
       </Card>

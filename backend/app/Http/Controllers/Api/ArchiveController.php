@@ -246,14 +246,9 @@ class ArchiveController extends Controller
         $user = $request->user();
         $archive = Archive::findOrFail($id);
 
-        if ($archive->archive_type !== 'senior_citizen') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Timeline is only available for senior citizen archives.',
-            ], 400);
-        }
+        // 1. We removed the block that restricted this to 'senior_citizen' only!
 
-        // Access check
+        // Access check for Barangay Admin
         if ($user->isBarangayAdmin()) {
             return response()->json([
                 'success' => false,
@@ -261,7 +256,8 @@ class ArchiveController extends Controller
             ], 403);
         }
 
-        if ($user->isBranchAdmin()) {
+        // Access check for Branch Admin (Only restrict if they are looking at a Senior Citizen)
+        if ($user->isBranchAdmin() && $archive->archive_type === 'senior_citizen') {
             $barangayIds = $user->getAccessibleBarangayIds();
             $barangayId = $archive->archive_data['barangay_id'] ?? null;
             if ($barangayId && !in_array($barangayId, $barangayIds)) {
@@ -272,23 +268,29 @@ class ArchiveController extends Controller
             }
         }
 
-        $seniorId = $archive->reference_id;
+        $referenceId = $archive->reference_id;
+        
+        // Define the target type based on what is in your audit_logs table
+        $targetType = $archive->archive_type === 'senior_citizen' ? 'senior_citizens' : 'users'; 
+        // Note: If your audit_logs table saves admin changes under the type 'admin_users', 
+        // change 'users' above to 'admin_users'.
 
-        // Fetch audit logs for this senior
+        // Fetch audit logs for this record
         $auditLogs = DB::table('audit_logs')
             ->leftJoin('users', 'users.id', '=', 'audit_logs.user_id')
-            ->where('target_type', 'senior_citizens')
-            ->where('target_id', $seniorId)
+            ->where('target_type', $targetType)
+            ->where('target_id', $referenceId)
             ->orderBy('created_at')
-            ->get([
+            ->select([
                 'audit_logs.id',
                 'audit_logs.action',
                 'audit_logs.description',
                 'audit_logs.old_values',
                 'audit_logs.new_values',
                 'audit_logs.created_at',
-                'users.name as user_name',
-            ]);
+                DB::raw("CONCAT_WS(' ', users.first_name, users.last_name) as user_name")
+            ])
+            ->get();
 
         $events = [];
 
@@ -315,7 +317,7 @@ class ArchiveController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'senior_id' => $seniorId,
+                'reference_id' => $referenceId,
                 'events' => $events,
             ],
         ]);
