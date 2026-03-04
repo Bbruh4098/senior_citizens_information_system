@@ -144,32 +144,62 @@ const Archives = () => {
   };
 
   const columns = [
-    {
-      title: "Name",
-      key: "name",
-      render: (_, record) => (
-        <Button type="link" onClick={() => openDetails(record)}>
-          {record.full_name || record.username}
+  {
+    title: "Name & Identifier",
+    key: "name_id",
+    render: (_, record) => (
+      <Space direction="vertical" size={0}>
+        <Button 
+          type="link" 
+          onClick={() => openDetails(record)} 
+          style={{ padding: 0, height: 'auto', fontWeight: 600 }}
+        >
+          {record.full_name || record.username || "Unknown"}
         </Button>
-      ),
-    },
-    {
-      title: "Archive Type", // 2. Added a column so users know what type of record they are looking at
-      dataIndex: "archive_type",
-      key: "archive_type",
-      render: (type) => (
-        <Tag color={type === "senior_citizen" ? "blue" : "purple"}>
-          {type === "senior_citizen" ? "Senior Citizen" : "Admin User"}
-        </Tag>
-      ),
-    },
-    {
-      title: "Archived At",
-      dataIndex: "archived_at",
-      key: "archived_at",
-      width: 170,
-      render: (date) => (date ? dayjs(date).format("MMM D, YYYY HH:mm") : "-"),
-    },
+        {record.archive_type === "senior_citizen" ? (
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            ID: {record.osca_id || "No OSCA ID"}
+          </Text>
+        ) : (
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            Emp ID: {record.employee_id || "N/A"}
+          </Text>
+        )}
+      </Space>
+    ),
+  },
+  {
+    title: "Archive Type",
+    dataIndex: "archive_type",
+    key: "archive_type",
+    render: (type) => (
+      <Tag color={type === "senior_citizen" ? "blue" : "purple"}>
+        {type === "senior_citizen" ? "Senior Citizen" : "Admin User"}
+      </Tag>
+    ),
+  },
+  {
+    title: "Reason",
+    dataIndex: "archive_reason",
+    key: "archive_reason",
+    render: (reason) => (
+      <Tag icon={<FolderOutlined />} color="default">
+        {reason ? reason.toUpperCase() : "N/A"}
+      </Tag>
+    ),
+  },
+  {
+    title: "Archived At",
+    dataIndex: "archived_at",
+    key: "archived_at",
+    width: 180,
+    render: (date) => (
+      <Space>
+        <ClockCircleOutlined style={{ color: '#bfbfbf' }} />
+        {date ? dayjs(date).format("MMM D, YYYY HH:mm") : "-"}
+      </Space>
+    ),
+  },
   ];
 
   return (
