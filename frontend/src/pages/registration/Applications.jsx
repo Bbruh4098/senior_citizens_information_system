@@ -236,10 +236,32 @@ const Applications = () => {
         {
             title: 'Date',
             key: 'date',
-            width: 150,
+            width: 120,
             render: (_, record) => {
                 const date = record.submission_date || record.created_at;
                 return date ? dayjs(date).format('MMM D, YYYY') : '-';
+            },
+        },
+        {
+            title: 'Submitted By',
+            key: 'submitted_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.submitter) {
+                    return `${record.submitter.first_name} ${record.submitter.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
+            },
+        },
+        {
+            title: 'Approved By',
+            key: 'approved_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.approver) {
+                    return `${record.approver.first_name} ${record.approver.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
             },
         },
         {

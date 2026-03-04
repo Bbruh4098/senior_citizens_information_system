@@ -20,7 +20,7 @@ class ApplicationController extends Controller
         $user = $request->user();
         $perPage = $request->get('per_page', 15);
         
-        $query = Application::with(['senior', 'senior.barangay', 'applicationType', 'submitter'])
+        $query = Application::with(['senior', 'senior.barangay', 'applicationType', 'submitter', 'approver'])
             ->when(!$user->isMainAdmin(), function ($q) use ($user) {
                 // Non-main admins can only see applications from their accessible barangays
                 $accessibleBarangayIds = $user->getAccessibleBarangayIds();
@@ -247,6 +247,11 @@ class ApplicationController extends Controller
             switch ($request->status) {
                 case 'For Verification':
                     $updateData['submission_date'] = now();
+                    break;
+
+                case 'Verified':
+                    $updateData['verified_by'] = $user->id;
+                    $updateData['verification_date'] = now();
                     break;
                     
                 case 'Approved':

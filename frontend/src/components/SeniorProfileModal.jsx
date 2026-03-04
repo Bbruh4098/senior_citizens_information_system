@@ -455,6 +455,26 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                             key: 'date',
                             render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '-',
                         },
+                        {
+                            title: 'Submitted By',
+                            key: 'submitted_by',
+                            render: (_, record) => {
+                                if (record.submitter) {
+                                    return `${record.submitter.first_name} ${record.submitter.last_name}`;
+                                }
+                                return '—';
+                            },
+                        },
+                        {
+                            title: 'Approved By',
+                            key: 'approved_by',
+                            render: (_, record) => {
+                                if (record.approver) {
+                                    return `${record.approver.first_name} ${record.approver.last_name}`;
+                                }
+                                return '—';
+                            },
+                        },
                     ]}
                 />
             ) : (

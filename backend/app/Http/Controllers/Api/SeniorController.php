@@ -119,6 +119,8 @@ class SeniorController extends Controller
                 'registrationStatus',
                 'registeredBy',
                 'applications.applicationType',
+                'applications.submitter',
+                'applications.approver',
                 'seniorIds',
                 'familyMembers',
             ])
