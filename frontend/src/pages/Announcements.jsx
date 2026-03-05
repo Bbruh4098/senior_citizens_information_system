@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Table, Card, Input, Select, Button, Space, Tag, Row, Col,
-  Typography, Modal, Form, DatePicker, message, Popconfirm, Upload, List,
+  Typography, Modal, Form, DatePicker, message, Popconfirm, Upload, List, Grid,
 } from "antd";
 import {
   SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
@@ -14,8 +14,10 @@ import dayjs from "dayjs";
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
+const { useBreakpoint } = Grid;
 
 const Announcements = () => {
+  const screens = useBreakpoint();
   const [loading, setLoading] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
   const [types, setTypes] = useState([]);
@@ -37,6 +39,7 @@ const Announcements = () => {
   const [mediaList, setMediaList] = useState([]);
   const [mediaUploading, setMediaUploading] = useState(false);
 
+  // --- Data Fetching ---
   useEffect(() => {
     fetchAnnouncements();
     fetchTypes();
@@ -72,6 +75,7 @@ const Announcements = () => {
     }
   };
 
+  // --- Event Handlers ---
   const handleTableChange = (paginationConfig) => {
     fetchAnnouncements(paginationConfig.current, paginationConfig.pageSize);
   };
@@ -87,32 +91,28 @@ const Announcements = () => {
     return () => clearTimeout(delayDebounce);
   }, [filters]);
 
+  // --- Modal Logic ---
   const closeModal = () => {
-  setFormModal({ visible: false, mode: "create", item: null });
-  form.resetFields();
-  setMediaList([]);
+    setFormModal({ visible: false, mode: "create", item: null });
+    form.resetFields();
+    setMediaList([]);
   };
 
   const openCreateModal = () => {
     form.resetFields();
-    setMediaList([]); 
+    setMediaList([]);
     setFormModal({ visible: true, mode: "create", item: null });
   };
 
   const openEditModal = (item) => {
-  const mappedItem = {
-    ...item,
-    content: item.description,
-    event_date: item.event_date ? dayjs(item.event_date) : null,
-  };
-
-  setFormModal({ 
-    visible: true, 
-    mode: "edit", 
-    item: mappedItem // Store the mapped item here
-  });
-  
-  loadMedia(item.id);
+    const mappedItem = {
+      ...item,
+      content: item.description,
+      event_date: item.event_date ? dayjs(item.event_date) : null,
+    };
+    form.setFieldsValue(mappedItem);
+    setFormModal({ visible: true, mode: "edit", item: mappedItem });
+    loadMedia(item.id);
   };
 
   const loadMedia = async (announcementId) => {
@@ -125,79 +125,71 @@ const Announcements = () => {
   };
 
   const processSubmit = async (values, isPublished) => {
-  try {
-    const data = {
-      ...values,
-      // Handle the date formatting only if a date exists
-      event_date: values.event_date ? values.event_date.format("YYYY-MM-DD") : null,
-      is_published: isPublished,
-    };
+    try {
+      const data = {
+        ...values,
+        event_date: values.event_date ? values.event_date.format("YYYY-MM-DD") : null,
+        is_published: isPublished,
+      };
 
-    if (formModal.mode === "create") {
-      const res = await announcementsApi.create(data);
-      const createdId = res.data?.data?.id;
-
-      // Handle media if any
-      if (createdId && mediaList.length > 0) {
-        for (const media of mediaList) {
-          if (media.originFileObj) {
-            const formData = new FormData();
-            formData.append("file", media.originFileObj);
-            await announcementsApi.uploadMedia(createdId, formData);
+      if (formModal.mode === "create") {
+        const res = await announcementsApi.create(data);
+        const createdId = res.data?.data?.id;
+        if (createdId && mediaList.length > 0) {
+          for (const media of mediaList) {
+            if (media.originFileObj) {
+              const formData = new FormData();
+              formData.append("file", media.originFileObj);
+              await announcementsApi.uploadMedia(createdId, formData);
+            }
           }
         }
+        message.success(isPublished ? "Announcement published" : "Draft saved");
+      } else {
+        await announcementsApi.update(formModal.item.id, data);
+        message.success(isPublished ? "Announcement updated" : "Draft updated");
       }
-      message.success(isPublished ? "Announcement published" : "Draft saved");
-    } else {
-      await announcementsApi.update(formModal.item.id, data);
-      message.success(isPublished ? "Announcement updated" : "Draft updated");
+      fetchAnnouncements(pagination.current);
+      closeModal();
+    } catch (error) {
+      if (error.response?.status === 422 && isPublished) {
+        message.error("Please fill in all required fields before publishing.");
+      } else {
+        message.error("Failed to save announcement");
+      }
     }
-    
-    fetchAnnouncements(pagination.current);
-    closeModal(); 
-  } catch (error) {
-    // If it's a validation error from the backend, show it
-    if (error.response?.status === 422 && isPublished) {
-      message.error("Please fill in all required fields before publishing.");
-    } else {
-      message.error("Failed to save announcement");
-    }
-  }
   };
 
   const handleSubmit = async (values) => {
-    await processSubmit(values, true); 
+    await processSubmit(values, true);
   };
 
   const handleCancel = () => {
-  if (!form.isFieldsTouched()) {
-    closeModal();
-    return;
-  }
-
-  if (formModal.item?.is_published) {
+    if (!form.isFieldsTouched()) {
+      closeModal();
+      return;
+    }
+    if (formModal.item?.is_published) {
+      Modal.confirm({
+        title: "Discard Changes?",
+        content: "You have unsaved changes. Exit without saving?",
+        okText: "Discard",
+        okType: 'danger',
+        onOk: () => closeModal(),
+      });
+      return;
+    }
     Modal.confirm({
-      title: "Discard Changes?",
-      content: "You have unsaved changes. Exit without saving?",
-      okText: "Discard",
-      okType: 'danger',
-      onOk: () => closeModal(),
+      title: "Save as Draft?",
+      content: "You have unsaved changes. Would you like to save as a draft?",
+      okText: "Save as Draft",
+      cancelText: "Discard",
+      onOk: async () => {
+        const values = form.getFieldsValue();
+        await processSubmit(values, false);
+      },
+      onCancel: () => closeModal(),
     });
-    return;
-  }
-
-  Modal.confirm({
-    title: "Save as Draft?",
-    content: "You have unsaved changes. Would you like to save as a draft?",
-    okText: "Save as Draft",
-    cancelText: "Discard",
-    onOk: async () => {
-      // Just get the values directly—no validation required
-      const values = form.getFieldsValue(); 
-      await processSubmit(values, false); 
-    },
-    onCancel: () => closeModal(),
-  });
   };
 
   const handleDelete = async (id) => {
@@ -210,6 +202,7 @@ const Announcements = () => {
     }
   };
 
+  // --- Table Columns Configuration ---
   const columns = [
     {
       title: "Title",
@@ -219,20 +212,28 @@ const Announcements = () => {
         <div>
           <Text strong>{title}</Text>
           <br />
-          {record.type && <Tag color="blue">{record.type.name}</Tag>}
+          {/* Show Type and Status on Mobile as sub-info */}
+          {!screens.md && (
+            <Space size={4} style={{ marginTop: 4 }} wrap>
+              {record.type && <Tag color="blue" style={{ fontSize: '10px' }}>{record.type.name}</Tag>}
+              <Tag color={record.is_published ? "green" : "default"} style={{ fontSize: '10px' }}>
+                {record.is_published ? "Live" : "Draft"}
+              </Tag>
+            </Space>
+          )}
+          {/* Only show type in its own tag for desktop */}
+          {screens.md && record.type && <Tag color="blue">{record.type.name}</Tag>}
         </div>
       ),
     },
     {
       title: "Content",
-      dataIndex: "description", // Matches backend column
+      dataIndex: "description",
       key: "description",
       width: 300,
+      responsive: ['md'], // Hide on mobile/tablet
       render: (content) => (
-        <Paragraph
-          ellipsis={{ rows: 2 }}
-          style={{ marginBottom: 0, fontSize: 13 }}
-        >
+        <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0, fontSize: 13 }}>
           {content}
         </Paragraph>
       ),
@@ -241,6 +242,7 @@ const Announcements = () => {
       title: "Event",
       key: "event",
       width: 150,
+      responsive: ['lg'], // Hide on smaller screens
       render: (_, record) =>
         record.event_date ? (
           <Space direction="vertical" size={0}>
@@ -251,21 +253,18 @@ const Announcements = () => {
             {record.location && (
               <Space size={4}>
                 <EnvironmentOutlined />
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {record.location}
-                </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>{record.location}</Text>
               </Space>
             )}
           </Space>
-        ) : (
-          "-"
-        ),
+        ) : "-",
     },
     {
       title: "Status",
       dataIndex: "is_published",
       key: "is_published",
       width: 100,
+      responsive: ['md'], // Hide on mobile
       render: (published) => (
         <Tag color={published ? "green" : "default"}>
           {published ? "Published" : "Draft"}
@@ -277,12 +276,14 @@ const Announcements = () => {
       dataIndex: "created_at",
       key: "created_at",
       width: 120,
+      responsive: ['xl'], // Only show on very large screens
       render: (date) => (date ? dayjs(date).format("MMM D, YYYY") : "-"),
     },
     {
       title: "Actions",
       key: "actions",
       width: 100,
+      fixed: 'right', // Keep sticky on mobile horizontal scroll
       render: (_, record) => (
         <Space>
           <Button
@@ -290,23 +291,26 @@ const Announcements = () => {
             icon={<EditOutlined />}
             onClick={() => openEditModal(record)}
           />
-          <Popconfirm
-            title="Delete this announcement?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="text" icon={<DeleteOutlined />} danger />
-          </Popconfirm>
+          {/* Only show delete icon button if screen is at least medium */}
+          {screens.md && (
+            <Popconfirm
+              title="Delete this announcement?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button type="text" icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
   ];
 
   return (
-    <div>
+    <div style={{ padding: screens.xs ? '8px' : '0px' }}>
       <div style={{ marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0 }}>
+        <Title level={screens.xs ? 4 : 3} style={{ margin: 0 }}>
           <NotificationOutlined /> Announcements
         </Title>
         <Text type="secondary">
@@ -316,7 +320,7 @@ const Announcements = () => {
 
       <Card style={{ marginBottom: 16, borderRadius: 8 }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={10}>
+          <Col xs={24} sm={10} md={10}>
             <Input
               placeholder="Search announcements..."
               prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />}
@@ -324,9 +328,9 @@ const Announcements = () => {
               onChange={(e) => handleFilterChange('search', e.target.value)}
             />
           </Col>
-          <Col xs={12} sm={6}>
+          <Col xs={12} sm={6} md={6}>
             <Select
-              placeholder="Filter status"
+              placeholder="Status"
               style={{ width: "100%" }}
               allowClear
               value={filters.is_published}
@@ -336,50 +340,50 @@ const Announcements = () => {
               <Option value={0}>Draft</Option>
             </Select>
           </Col>
-          <Col xs={12} sm={8} style={{ textAlign: "right" }}>
+          <Col xs={12} sm={8} md={8} style={{ textAlign: "right" }}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={openCreateModal}
+              block={screens.xs}
             >
-              New Announcement
+              {screens.xs ? "New" : "New Announcement"}
             </Button>
           </Col>
         </Row>
       </Card>
 
-      <Card style={{ borderRadius: 8 }}>
+      <Card style={{ borderRadius: 8 }} bodyStyle={{ padding: screens.xs ? '0px' : '24px' }}>
         <Table
           columns={columns}
           dataSource={announcements}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 'max-content' }} // Allows horizontal scroll on mobile
           pagination={{
             ...pagination,
-            showSizeChanger: true,
-            showTotal: (total) => `${total} announcements`,
+            simple: screens.xs, // Simple pagination for mobile
+            showSizeChanger: !screens.xs,
+            showTotal: (total) => screens.xs ? null : `${total} announcements`,
           }}
           onChange={handleTableChange}
         />
       </Card>
 
       <Modal
-        // BUG FIX: The key ensures the form re-initializes with NEW data every time
         key={formModal.item ? `edit-${formModal.item.id}` : 'create'}
         title={formModal.mode === "create" ? "New Announcement" : "Edit Announcement"}
         open={formModal.visible}
         onCancel={handleCancel}
         footer={null}
-        width={600}
+        width={screens.xs ? "100%" : 600}
         centered
-        // Ensure the form is destroyed when closed so it doesn't leak data
         destroyOnClose={true}
       >
         <Form 
-              form={form} 
+            form={form} 
             layout="vertical" 
             onFinish={handleSubmit}
-            // BUG FIX: Set the initial values here
             initialValues={formModal.item || {}} 
         >
           <Form.Item name="title" label="Title" rules={[{ required: true }]}>
@@ -390,18 +394,16 @@ const Announcements = () => {
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="type_id" label="Type">
                 <Select placeholder="Select type" allowClear>
                   {types.map((t) => (
-                    <Option key={t.id} value={t.id}>
-                      {t.name}
-                    </Option>
+                    <Option key={t.id} value={t.id}>{t.name}</Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="event_date" label="Event Date">
                 <DatePicker style={{ width: "100%" }} />
               </Form.Item>
@@ -409,12 +411,12 @@ const Announcements = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="location" label="Location">
                 <Input placeholder="Event location" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="target_audience" label="Target Audience">
                 <Input placeholder="e.g., All seniors, PWD" />
               </Form.Item>
@@ -423,12 +425,9 @@ const Announcements = () => {
 
           <Card
             type="inner"
-            title={
-              <span>
-                <PaperClipOutlined /> Attachments
-              </span>
-            }
+            title={<span><PaperClipOutlined /> Attachments</span>}
             style={{ marginBottom: 16 }}
+            size="small"
           >
             <Upload
               multiple={false}
@@ -454,10 +453,7 @@ const Announcements = () => {
                 const formData = new FormData();
                 formData.append("file", file);
                 try {
-                  const res = await announcementsApi.uploadMedia(
-                    formModal.item.id,
-                    formData
-                  );
+                  const res = await announcementsApi.uploadMedia(formModal.item.id, formData);
                   const uploaded = res.data?.data;
                   setMediaList((prev) => [...prev, uploaded]);
                   onSuccess && onSuccess(res.data);
@@ -470,7 +466,7 @@ const Announcements = () => {
                 }
               }}
             >
-              <Button loading={mediaUploading} icon={<UploadOutlined />}>
+              <Button loading={mediaUploading} icon={<UploadOutlined />} block={screens.xs}>
                 Upload File
               </Button>
             </Upload>
@@ -484,51 +480,19 @@ const Announcements = () => {
               renderItem={(item) => (
                 <List.Item
                   actions={[
-                    <a
-                      key="download"
-                      href={item.url || item.file_path}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View
-                    </a>,
-                    <a
-                      key="delete"
-                      style={{ color: "red" }}
-                      onClick={async () => {
+                    <a key="view" href={item.url || item.file_path} target="_blank" rel="noopener noreferrer">View</a>,
+                    <a key="del" style={{ color: "red" }} onClick={async () => {
                         try {
-                          if (formModal.mode !== "create") {
-                            await announcementsApi.deleteMedia(item.id);
-                          }
-                          setMediaList((prev) =>
-                            prev.filter((m) => m.id !== item.id && m.uid !== item.uid)
-                          );
-                          message.success("Attachment deleted");
-                        } catch (e) {
-                          message.error("Failed to delete attachment");
-                        }
-                      }}
-                    >
-                      Delete
-                    </a>,
+                          if (formModal.mode !== "create") await announcementsApi.deleteMedia(item.id);
+                          setMediaList((prev) => prev.filter((m) => m.id !== item.id && m.uid !== item.uid));
+                          message.success("Deleted");
+                        } catch (e) { message.error("Failed"); }
+                      }}>Delete</a>,
                   ]}
                 >
                   <List.Item.Meta
                     avatar={<PaperClipOutlined />}
-                    title={
-                      <a
-                        href={item.url || item.file_path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {item.name || (item.file_path ? item.file_path.split("/").pop() : "Attachment")}
-                      </a>
-                    }
-                    description={
-                      item.uploaded_at
-                        ? dayjs(item.uploaded_at).format("MMM D, YYYY HH:mm")
-                        : item.media_type?.toUpperCase() || "File"
-                    }
+                    title={<Text ellipsis style={{maxWidth: screens.xs ? 100 : 200}}>{item.name || "File"}</Text>}
                   />
                 </List.Item>
               )}
@@ -536,10 +500,10 @@ const Announcements = () => {
           </Card>
 
           <Form.Item style={{ marginBottom: 0, textAlign: "right" }}>
-            <Space>
+            <Space style={{ width: screens.xs ? '100%' : 'auto', justifyContent: 'flex-end' }}>
               <Button onClick={handleCancel}>Cancel</Button>
               <Button type="primary" htmlType="submit">
-                {formModal.mode === "create" ? "Create & Publish" : "Save Changes"}
+                {formModal.mode === "create" ? "Publish" : "Save"}
               </Button>
             </Space>
           </Form.Item>

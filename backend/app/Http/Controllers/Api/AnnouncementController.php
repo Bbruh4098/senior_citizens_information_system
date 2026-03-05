@@ -43,21 +43,28 @@ class AnnouncementController extends Controller
         $isPublished = $request->boolean('is_published');
 
         $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string', // FIXED BUG 3
-            'type_id' => 'required|exists:announcement_types,id',
+            'title' => $isPublished ? 'required|string|max:255' : 'nullable|string|max:255',
+            'content' => $isPublished ? 'required|string' : 'nullable|string',
+            'type_id' => $isPublished ? 'required|exists:announcement_types,id' : 'nullable|exists:announcement_types,id',
             'is_published' => 'boolean',
         ]);
 
+        // Default type_id if none provided for draft
+        $typeId = $request->input('type_id');
+        if (!$typeId && !$isPublished) {
+            $defaultType = AnnouncementType::first();
+            $typeId = $defaultType ? $defaultType->id : 1;
+        }
+
         $announcement = Announcement::create([
-            'title' => $request->input('title'),
-            'description' => $request->input('content'), // Map 'content' to 'description'
-            'type_id' => $request->input('type_id'),
+            'title' => $request->input('title') ?: 'Untitled Draft',
+            'description' => $request->input('content') ?: '', 
+            'type_id' => $typeId,
             'event_date' => $request->input('event_date'),
             'location' => $request->input('location'),
             'target_audience' => $request->input('target_audience'),
-            'is_published' => $request->boolean('is_published', false),
-            'published_date' => $request->boolean('is_published') ? now() : null,
+            'is_published' => $isPublished,
+            'published_date' => $isPublished ? now() : null,
             'created_by' => $request->user()->id,
         ]);
 
@@ -67,14 +74,34 @@ class AnnouncementController extends Controller
     public function update(Request $request, $id)
     {
         $announcement = Announcement::findOrFail($id);
-        $updateData = $request->only(['title', 'type_id', 'event_date', 'location', 'target_audience']);
+        
+        $isPublished = $request->has('is_published') ? $request->boolean('is_published') : $announcement->is_published;
+
+        $request->validate([
+            'title' => $isPublished ? 'required|string|max:255' : 'nullable|string|max:255',
+            'content' => $isPublished ? 'required|string' : 'nullable|string',
+            'type_id' => $isPublished ? 'required|exists:announcement_types,id' : 'nullable|exists:announcement_types,id',
+            'is_published' => 'boolean',
+        ]);
+
+        $updateData = $request->only(['event_date', 'location', 'target_audience']);
+        
+        if ($request->has('title')) {
+            $updateData['title'] = $request->input('title') ?: 'Untitled Draft';
+        }
+        if ($request->has('type_id')) {
+            $typeId = $request->input('type_id');
+            if (!$typeId && !$isPublished) {
+                $typeId = $announcement->type_id ?: (AnnouncementType::first()->id ?? 1);
+            }
+            $updateData['type_id'] = $typeId;
+        }
 
         if ($request->has('content')) {
-            $updateData['description'] = $request->input('content'); // Map 'content' to 'description'
+            $updateData['description'] = $request->input('content') ?: ''; // Map 'content' to 'description'
         }
 
         if ($request->has('is_published')) {
-            $isPublished = $request->boolean('is_published');
             $updateData['is_published'] = $isPublished;
             if ($isPublished && !$announcement->is_published) {
                 $updateData['published_date'] = now();
@@ -88,13 +115,19 @@ class AnnouncementController extends Controller
 
     public function uploadMedia(Request $request, $id)
     {
+        // 1. Ensure the announcement actually exists before uploading files
+        $announcement = Announcement::findOrFail($id);
+        
+        // 2. Authorize the action (Example)
+        // $this->authorize('update', $announcement);
+
         $request->validate(['file' => 'required|file|max:20480']);
         $file = $request->file('file');
         
-        $path = $file->store('announcements/' . $id, 'public');
+        $path = $file->store('announcements/' . $announcement->id, 'public');
         
         $media = AnnouncementMedia::create([
-            'announcement_id' => $id,
+            'announcement_id' => $announcement->id,
             'file_path' => $path,
             'media_type' => str_starts_with($file->getMimeType(), 'image/') ? 'image' : 'document',
         ]);
@@ -107,7 +140,22 @@ class AnnouncementController extends Controller
 
     public function destroy($id)
     {
-        Announcement::findOrFail($id)->delete();
+        $announcement = Announcement::with('media')->findOrFail($id);
+        
+        // 1. Authorize the action (Example)
+        // $this->authorize('delete', $announcement);
+
+        // 2. Prevent storage leaks by deleting associated files first
+        if ($announcement->media) {
+            foreach ($announcement->media as $media) {
+                Storage::disk('public')->delete($media->file_path);
+            }
+            // Optionally, delete the empty directory
+            Storage::disk('public')->deleteDirectory('announcements/' . $announcement->id);
+        }
+
+        $announcement->delete();
+        
         return response()->json(['success' => true]);
     }
 
