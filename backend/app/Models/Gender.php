@@ -8,7 +8,7 @@ class Gender extends Model
 {
     protected $table = 'genders';
     
-    protected $fillable = ['name', 'code'];
+    protected $fillable = ['name', 'code', 'is_enabled', 'sort_order'];
 
     public function seniors()
     {

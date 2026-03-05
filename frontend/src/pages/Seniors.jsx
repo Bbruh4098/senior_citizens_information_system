@@ -87,16 +87,17 @@ const Seniors = () => {
         }
     };
 
-    const fetchSeniors = async (page = 1, pageSize = 15) => {
+    const fetchSeniors = async (page = 1, pageSize = 15, customFilters = null) => {
         setLoading(true);
         try {
+            const currentFilters = customFilters || filters;
             const params = {
                 page,
                 per_page: pageSize,
-                search: filters.search || undefined,
-                status: filters.status || undefined,
-                barangay_id: filters.barangay_id || undefined,
-                age_categories: filters.age_categories.length > 0 ? filters.age_categories.join(',') : undefined,
+                search: currentFilters.search || undefined,
+                status: currentFilters.status || undefined,
+                barangay_id: currentFilters.barangay_id || undefined,
+                age_categories: currentFilters.age_categories.length > 0 ? currentFilters.age_categories.join(',') : undefined,
             };
             const response = await seniorsApi.getList(params);
             const { data, current_page, per_page, total } = response.data.data;
@@ -129,29 +130,36 @@ const Seniors = () => {
     };
 
     const handleSearch = (value) => {
-        setFilters((prev) => ({ ...prev, search: value }));
-        setTimeout(() => fetchSeniors(1), 300);
+        const newFilters = { ...filters, search: value };
+        setFilters(newFilters);
+        fetchSeniors(1, pagination.pageSize, newFilters);
     };
 
     const handleStatusChange = (value) => {
         const newFilters = { ...filters, status: value };
         setFilters(newFilters);
-        setTimeout(() => fetchSeniors(1), 100);
+        fetchSeniors(1, pagination.pageSize, newFilters);
     };
 
     const handleAgeCategoryChange = (checkedValues) => {
         const newFilters = { ...filters, age_categories: checkedValues };
         setFilters(newFilters);
-        setTimeout(() => fetchSeniors(1), 100);
+        fetchSeniors(1, pagination.pageSize, newFilters);
     };
 
     const handleExport = async () => {
         try {
-            const response = await seniorsApi.export();
+            const params = {
+                search: filters.search || undefined,
+                status: filters.status || undefined,
+                barangay_id: filters.barangay_id || undefined,
+                age_categories: filters.age_categories.length > 0 ? filters.age_categories.join(',') : undefined,
+            };
+            const response = await seniorsApi.export(params);
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `seniors_export_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', `seniors_export_${new Date().toISOString().split('T')[0]}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -200,6 +208,8 @@ const Seniors = () => {
         if (age >= 100) return <Tag color="gold">Centenarian</Tag>;
         if (age >= 90) return <Tag color="purple">Nonagenarian</Tag>;
         if (age >= 80) return <Tag color="blue">Octogenarian</Tag>;
+        if (age >= 70) return <Tag color="cyan">Septuagenarian</Tag>;
+        if (age >= 60) return <Tag color="green">Sexagenarian</Tag>;
         return null;
     };
 
@@ -288,8 +298,9 @@ const Seniors = () => {
         },
     ];
 
-    // Age category options for checkbox group
     const ageCategoryOptions = [
+        { label: 'Sexagenarians (60-69)', value: 'sexagenarians' },
+        { label: 'Septuagenarians (70-79)', value: 'septuagenarians' },
         { label: 'Octogenarians (80-89)', value: 'octogenarians' },
         { label: 'Nonagenarians (90-99)', value: 'nonagenarians' },
         { label: 'Centenarians (100+)', value: 'centenarians' },
@@ -399,9 +410,10 @@ const Seniors = () => {
                             showSearch
                             optionFilterProp="children"
                             onChange={(value) => {
-                                setFilters(prev => ({ ...prev, barangay_id: value }));
+                                const newFilters = { ...filters, barangay_id: value };
+                                setFilters(newFilters);
                                 setPagination(prev => ({ ...prev, current: 1 }));
-                                setTimeout(() => fetchSeniors(1), 100);
+                                fetchSeniors(1, pagination.pageSize, newFilters);
                             }}
                         >
                             {barangays.map(b => (
@@ -415,7 +427,7 @@ const Seniors = () => {
                                 icon={<DownloadOutlined />}
                                 onClick={handleExport}
                             >
-                                Export CSV
+                                Export Excel
                             </Button>
                             <Button
                                 type="primary"
@@ -566,7 +578,18 @@ const Seniors = () => {
                                                 </Tag>
                                             )
                                         },
-                                        { title: 'Filed', dataIndex: 'created_at', key: 'created_at' },
+                                        {
+                                            title: 'Filed By', dataIndex: 'filed_by', key: 'filed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Processed By', dataIndex: 'processed_by', key: 'processed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Released By', dataIndex: 'released_by', key: 'released_by',
+                                            render: (text) => text || '—',
+                                        },
                                     ]}
                                     dataSource={claimHistoryModal.data.claims}
                                     rowKey="id"

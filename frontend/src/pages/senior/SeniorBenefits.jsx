@@ -8,7 +8,6 @@ import {
     Button,
     Tag,
     Table,
-    Progress,
     Divider,
     Empty,
     Alert,
@@ -23,6 +22,7 @@ import {
     ClockCircleOutlined,
     CloseCircleOutlined,
     DollarOutlined,
+    MessageOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -210,7 +210,7 @@ const SeniorBenefits = () => {
                         <Divider />
 
                         {/* Claims History */}
-                        <Title level={4}>Claim History</Title>
+                        <Title level={4} style={{ marginBottom: 16 }}>Claim History</Title>
                         {benefitsData.claims?.length > 0 ? (
                             <Table
                                 columns={claimsColumns}
@@ -220,7 +220,7 @@ const SeniorBenefits = () => {
                                 style={{ marginBottom: 24 }}
                             />
                         ) : (
-                            <Card style={{ borderRadius: 12, textAlign: 'center', padding: 40 }}>
+                            <Card style={{ borderRadius: 12, textAlign: 'center', padding: 40, marginBottom: 24 }}>
                                 <Empty
                                     description="No benefit claims yet"
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -230,6 +230,31 @@ const SeniorBenefits = () => {
                                 </Paragraph>
                             </Card>
                         )}
+
+                        <Divider />
+
+                        {/* Complaints CTA */}
+                        <Card
+                            style={{ borderRadius: 12, cursor: 'pointer', background: '#fff5f5' }}
+                            onClick={() => navigate('/senior/complaints')}
+                            hoverable
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <MessageOutlined style={{ fontSize: 24, color: '#e74c3c' }} />
+                                    <div>
+                                        <Text strong>Have a concern about your benefits?</Text>
+                                        <br />
+                                        <Text type="secondary">File a complaint or check the status of your existing complaints</Text>
+                                    </div>
+                                </div>
+                                <Button type="link" style={{ color: '#e74c3c' }}>
+                                    Go to Complaints →
+                                </Button>
+                            </div>
+                        </Card>
+
+                        <Divider />
 
                         {/* Footer Info */}
                         <Card style={{ borderRadius: 12, background: '#f0f9ff' }}>

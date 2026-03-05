@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\PreRegistrationController;
 use App\Http\Controllers\PublicController;
 use App\Http\Controllers\SeniorAuthController;
+use App\Http\Controllers\Api\BenefitComplaintController;
+use App\Http\Controllers\Api\SmsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -41,6 +43,7 @@ Route::prefix('public')->group(function () {
 });
 
 
+
 // Senior Portal Authentication (public - no auth required)
 Route::prefix('senior')->group(function () {
     Route::post('/request-otp', [SeniorAuthController::class, 'requestOtp']);
@@ -49,6 +52,10 @@ Route::prefix('senior')->group(function () {
     Route::get('/profile', [SeniorAuthController::class, 'profile']);
     Route::get('/benefits', [SeniorAuthController::class, 'benefits']);
     Route::get('/dashboard-stats', [SeniorAuthController::class, 'dashboardStats']);
+
+    // Senior Complaints
+    Route::post('/complaints', [BenefitComplaintController::class, 'seniorStore']);
+    Route::get('/complaints', [BenefitComplaintController::class, 'seniorIndex']);
 });
 
 // Protected routes
@@ -62,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/upcoming-events', [DashboardController::class, 'upcomingEvents']);
     Route::get('/dashboard/age-distribution', [DashboardController::class, 'ageDistribution']);
     Route::get('/dashboard/gender-distribution', [DashboardController::class, 'genderDistribution']);
+    Route::get('/dashboard/heatmap', [DashboardController::class, 'heatmapData']);
 
     // Seniors
     Route::get('/seniors', [SeniorController::class, 'index']);
@@ -103,12 +111,46 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/lookup-options', [RegistrationController::class, 'lookupOptions']);
         Route::get('/barangays', [RegistrationController::class, 'barangays']);
         Route::post('/check-duplicate', [RegistrationController::class, 'checkDuplicate']);
+        Route::get('/search-family-senior', [RegistrationController::class, 'searchFamilySenior']);
         Route::post('/new', [RegistrationController::class, 'store']);
         Route::get('/{id}', [RegistrationController::class, 'show']);
         Route::put('/{id}', [RegistrationController::class, 'update']);
         Route::post('/upload-document', [RegistrationController::class, 'uploadDocument']);
         Route::delete('/document/{id}', [RegistrationController::class, 'deleteDocument']);
         Route::get('/{id}/documents', [RegistrationController::class, 'getDocuments']);
+    });
+
+    // Renewal (Renew ID)
+    Route::prefix('renew')->group(function () {
+        Route::get('/search', [\App\Http\Controllers\Api\RenewalController::class, 'search']);
+        Route::post('/new', [\App\Http\Controllers\Api\RenewalController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'update']);
+        Route::post('/upload-document', [\App\Http\Controllers\Api\RenewalController::class, 'uploadDocument']);
+        Route::delete('/document/{id}', [\App\Http\Controllers\Api\RenewalController::class, 'deleteDocument']);
+        Route::get('/{id}/documents', [\App\Http\Controllers\Api\RenewalController::class, 'getDocuments']);
+    });
+
+    // Replace Lost ID
+    Route::prefix('replace-lost')->group(function () {
+        Route::get('/search', [\App\Http\Controllers\Api\ReplaceLostController::class, 'search']);
+        Route::post('/new', [\App\Http\Controllers\Api\ReplaceLostController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\ReplaceLostController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\ReplaceLostController::class, 'update']);
+        Route::post('/upload-document', [\App\Http\Controllers\Api\ReplaceLostController::class, 'uploadDocument']);
+        Route::delete('/document/{id}', [\App\Http\Controllers\Api\ReplaceLostController::class, 'deleteDocument']);
+        Route::get('/{id}/documents', [\App\Http\Controllers\Api\ReplaceLostController::class, 'getDocuments']);
+    });
+
+    // Replace Damaged ID
+    Route::prefix('replace-damaged')->group(function () {
+        Route::get('/search', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'search']);
+        Route::post('/new', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'update']);
+        Route::post('/upload-document', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'uploadDocument']);
+        Route::delete('/document/{id}', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'deleteDocument']);
+        Route::get('/{id}/documents', [\App\Http\Controllers\Api\ReplaceDamagedController::class, 'getDocuments']);
     });
 
     // Benefits Module (PRD 4.3)
@@ -121,6 +163,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/statistics', [\App\Http\Controllers\Api\BenefitController::class, 'statistics']);
         Route::post('/claims', [\App\Http\Controllers\Api\BenefitController::class, 'store']);
         Route::patch('/claims/{id}/status', [\App\Http\Controllers\Api\BenefitController::class, 'updateStatus']);
+
+        // Benefit Complaints (admin)
+        Route::get('/complaints', [BenefitComplaintController::class, 'index']);
+        Route::get('/complaints/{id}', [BenefitComplaintController::class, 'show']);
+        Route::patch('/complaints/{id}/respond', [BenefitComplaintController::class, 'respond']);
     });
 
     // Get benefit claims for a specific senior
@@ -156,7 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/{id}/reset-password', [\App\Http\Controllers\Api\AccountController::class, 'resetPassword']);
         });
 
-        // Branch (Field Office) Management
+        // Field Office Management
         Route::prefix('admin/branches')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\BranchManagementController::class, 'indexBranches']);
             Route::get('/{id}', [\App\Http\Controllers\Api\BranchManagementController::class, 'showBranch']);
@@ -177,6 +224,15 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/{id}/unassign', [\App\Http\Controllers\Api\BranchManagementController::class, 'unassignBarangay']);
         });
 
+        // District Management
+        Route::prefix('admin/districts')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\BranchManagementController::class, 'indexDistricts']);
+            Route::post('/', [\App\Http\Controllers\Api\BranchManagementController::class, 'storeDistrict']);
+            Route::put('/{id}', [\App\Http\Controllers\Api\BranchManagementController::class, 'updateDistrict']);
+            Route::delete('/{id}', [\App\Http\Controllers\Api\BranchManagementController::class, 'destroyDistrict']);
+            Route::post('/{id}/assign-barangays', [\App\Http\Controllers\Api\BranchManagementController::class, 'assignDistrictBarangays']);
+        });
+
         // Benefit Type Management
         Route::prefix('admin/benefit-types')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\BenefitController::class, 'allTypes']);
@@ -184,6 +240,31 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [\App\Http\Controllers\Api\BenefitController::class, 'updateBenefitType']);
             Route::delete('/{id}', [\App\Http\Controllers\Api\BenefitController::class, 'destroyBenefitType']);
             Route::patch('/{id}/toggle', [\App\Http\Controllers\Api\BenefitController::class, 'toggleBenefitType']);
+        });
+        // Audit Log
+        Route::prefix('admin/audit-logs')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\AuditLogController::class, 'index']);
+            Route::get('/stats', [\App\Http\Controllers\Api\AuditLogController::class, 'stats']);
+            Route::get('/{id}', [\App\Http\Controllers\Api\AuditLogController::class, 'show']);
+        });
+
+        // Dropdown / Lookup Management
+        Route::get('admin/dropdowns/types', [\App\Http\Controllers\Api\DropdownController::class, 'types']);
+        Route::prefix('admin/dropdowns/{type}')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\DropdownController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\DropdownController::class, 'store']);
+            Route::put('/{id}', [\App\Http\Controllers\Api\DropdownController::class, 'update']);
+            Route::patch('/{id}/toggle', [\App\Http\Controllers\Api\DropdownController::class, 'toggleEnabled']);
+            Route::post('/reorder', [\App\Http\Controllers\Api\DropdownController::class, 'reorder']);
+        });
+
+        // SMS Settings & Management
+        Route::prefix('admin/sms')->group(function () {
+            Route::get('/settings', [SmsController::class, 'getSettings']);
+            Route::put('/settings', [SmsController::class, 'updateSettings']);
+            Route::get('/logs', [SmsController::class, 'getLogs']);
+            Route::get('/stats', [SmsController::class, 'getStats']);
+            Route::post('/test', [SmsController::class, 'sendTest']);
         });
     });
 

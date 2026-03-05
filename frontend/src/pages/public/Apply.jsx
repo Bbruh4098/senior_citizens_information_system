@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Row, Col, Card, Typography, Form, Input, Select, DatePicker, Button, Steps, Result, message, Divider, Spin, InputNumber } from 'antd';
+import { Row, Col, Card, Typography, Form, Input, Select, DatePicker, Button, Steps, Result, message, Divider, Spin, InputNumber, Tag, Checkbox } from 'antd';
 import {
     UserOutlined,
     UsergroupAddOutlined,
@@ -12,6 +12,7 @@ import {
     SearchOutlined,
     PlusOutlined,
     DeleteOutlined,
+    SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { publicApi } from '../../services/api';
@@ -26,11 +27,13 @@ const Apply = () => {
     const [submitted, setSubmitted] = useState(false);
     const [referenceNumber, setReferenceNumber] = useState('');
     const [loading, setLoading] = useState(false);
+    const [smsSent, setSmsSent] = useState(false);
     const [barangays, setBarangays] = useState([]);
     const [loadingBarangays, setLoadingBarangays] = useState(true);
     const [form] = Form.useForm();
     const [calculatedAge, setCalculatedAge] = useState(null);
     const [familyMembers, setFamilyMembers] = useState([]);
+    const [privacyAgreed, setPrivacyAgreed] = useState(false);
 
     // Status check state
     const [checkMode, setCheckMode] = useState(false);
@@ -56,23 +59,34 @@ const Apply = () => {
         { id: 9, name: 'Post Graduate' },
     ];
 
+    const civilStatuses = [
+        { id: 1, name: 'Single' },
+        { id: 2, name: 'Married' },
+        { id: 3, name: 'Separated' },
+        { id: 4, name: 'Widow' },
+        { id: 5, name: 'Widower' },
+        { id: 6, name: 'Divorced' },
+        { id: 7, name: 'Annulled' },
+        { id: 8, name: 'Single Parent' },
+    ];
+
     const targetSectors = [
-        { value: 'PNGNA', label: 'PNGNA', description: 'Member of national senior citizens organization' },
-        { value: 'WEPC', label: 'WEPC', description: 'Female senior citizens in empowerment programs' },
-        { value: 'PWD', label: 'PWD', description: 'Senior with recognized disability' },
-        { value: 'YNSP', label: 'YNSP', description: 'Special care program' },
-        { value: 'PASP', label: 'PASP', description: 'Hope and support program members' },
-        { value: 'KIA/WIA', label: 'KIA/WIA', description: '' },
+        { value: 'PNGNA', label: 'PNGNA', description: 'Pambansang Nagkakaisa ng mga Nakatatanda' },
+        { value: 'WEPC', label: 'WEPC', description: 'Women Empowerment Program for the Community' },
+        { value: 'PWD', label: 'PWD', description: 'Person with Disability' },
+        { value: 'YNSP', label: 'YNSP', description: 'Yakap ng Nagkakaisa sa Serbisyo ng Pangulo' },
+        { value: 'PASP', label: 'PASP', description: 'Pag-asa at Suporta ng Pangulo' },
+        { value: 'KIA/WIA', label: 'KIA/WIA', description: 'Killed in Action / Wounded in Action' },
     ];
 
     const subCategories = [
         { value: 'Solo Parents', label: 'Solo Parents' },
-        { value: 'Indigenous Person (IP)', label: 'Indigenous Person (IP)' },
+        { value: 'Indigenous Person (IP)', label: 'IP - Indigenous Person' },
         { value: 'Recovering Person who used drugs', label: 'Recovering Person who used drugs' },
-        { value: "4P's DSWD Beneficiaries", label: "4P's DSWD Beneficiaries" },
+        { value: "4P's DSWD Beneficiaries", label: "4P's (DSWD Beneficiaries)" },
         { value: 'Street Dwellers', label: 'Street Dwellers' },
-        { value: 'Psychosocial/Mental/Learning Disability', label: 'Psychosocial/Mental/Learning Disability' },
-        { value: 'Stateless Person/Asylum', label: 'Stateless Person/Asylum' },
+        { value: 'Psychosocial/Mental/Learning Disability', label: 'Psychosocial / Mental / Learning Disability' },
+        { value: 'Stateless Person/Asylum', label: 'Stateless Person / Asylum Seeker' },
     ];
 
     const steps = [
@@ -112,6 +126,15 @@ const Apply = () => {
         setCalculatedAge(age >= 0 ? age : null);
     }, []);
 
+    const getAgeCategory = (age) => {
+        if (age >= 100) return { label: 'Centenarian', color: 'gold' };
+        if (age >= 90) return { label: 'Nonagenarian', color: 'purple' };
+        if (age >= 80) return { label: 'Octogenarian', color: 'blue' };
+        if (age >= 70) return { label: 'Septuagenarian', color: 'cyan' };
+        if (age >= 60) return { label: 'Sexagenarian', color: 'green' };
+        return null;
+    };
+
     const handleBirthdateChange = (date) => {
         calculateAge(date);
         form.setFieldValue('birthdate', date);
@@ -121,7 +144,7 @@ const Apply = () => {
     const addFamilyMember = () => {
         setFamilyMembers([
             ...familyMembers,
-            { id: Date.now(), first_name: '', middle_name: '', last_name: '', relationship: '', age: '', monthly_salary: '' },
+            { id: Date.now(), first_name: '', middle_name: '', last_name: '', extension: '', birthdate: null, relationship: '', age: '', monthly_salary: '', mobile_number: '', telephone_number: '', email: '' },
         ]);
     };
 
@@ -130,15 +153,45 @@ const Apply = () => {
     };
 
     const updateFamilyMember = (id, field, value) => {
-        setFamilyMembers(
-            familyMembers.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+        setFamilyMembers(prev =>
+            prev.map((m) => {
+                if (m.id !== id) return m;
+                const updated = { ...m, [field]: value };
+                // Auto-calculate age when birthdate changes
+                if (field === 'birthdate' && value) {
+                    updated.age = dayjs().diff(dayjs(value), 'year');
+                } else if (field === 'birthdate' && !value) {
+                    updated.age = '';
+                }
+                return updated;
+            })
         );
     };
 
     const handleNext = async () => {
+        // Block Step 1 if privacy not agreed
+        if (currentStep === 0 && !privacyAgreed) {
+            message.warning('Please read and agree to the Data Privacy Notice before proceeding.');
+            return;
+        }
         try {
             const values = await form.validateFields();
-            setFormData({ ...formData, ...values });
+            const definedValues = Object.fromEntries(
+                Object.entries(values).filter(([, v]) => v !== undefined)
+            );
+            setFormData({ ...formData, ...definedValues });
+
+            // Validate family member required fields
+            if (currentStep === 1 && familyMembers.length > 0) {
+                const invalidMembers = familyMembers.filter(
+                    m => !m.first_name?.trim() || !m.last_name?.trim() || !m.relationship?.trim() || m.relationship === '__other__'
+                );
+                if (invalidMembers.length > 0) {
+                    message.warning('Please fill in First Name, Last Name, and Relationship for all family members, or remove incomplete entries.');
+                    return;
+                }
+            }
+
             if (currentStep < steps.length - 1) {
                 setCurrentStep(currentStep + 1);
             }
@@ -150,7 +203,10 @@ const Apply = () => {
     const handlePrev = () => {
         // Save current values before going back
         const values = form.getFieldsValue();
-        setFormData({ ...formData, ...values });
+        const definedValues = Object.fromEntries(
+            Object.entries(values).filter(([, v]) => v !== undefined)
+        );
+        setFormData({ ...formData, ...definedValues });
         setCurrentStep(currentStep - 1);
     };
 
@@ -166,6 +222,7 @@ const Apply = () => {
                 extension: formData.extension,
                 birthdate: formData.birthdate ? dayjs(formData.birthdate).format('YYYY-MM-DD') : null,
                 gender_id: formData.gender_id,
+                civil_status_id: formData.civil_status_id,
 
                 // Address
                 barangay_id: formData.barangay_id,
@@ -175,6 +232,7 @@ const Apply = () => {
                 // Contact
                 mobile_number: formData.mobile_number,
                 telephone_number: formData.telephone_number,
+                email: formData.email,
 
                 // Background
                 educational_attainment_id: formData.educational_attainment_id,
@@ -192,6 +250,7 @@ const Apply = () => {
 
             const response = await publicApi.apply(submitData);
             setReferenceNumber(response.data.reference_number);
+            setSmsSent(response.data.sms_sent || false);
             setSubmitted(true);
             message.success('Application submitted successfully!');
         } catch (error) {
@@ -343,6 +402,11 @@ const Apply = () => {
                                     <Paragraph type="secondary">
                                         Your application will be reviewed by the Admin. Visit the OSCA office with your documents to complete registration.
                                     </Paragraph>
+                                    {smsSent && (
+                                        <Paragraph style={{ color: '#059669', fontWeight: 500 }}>
+                                            ✓ Reference number has been sent to your mobile number via SMS.
+                                        </Paragraph>
+                                    )}
                                 </div>
                             }
                             extra={[
@@ -375,7 +439,7 @@ const Apply = () => {
                 textAlign: 'center',
             }}>
                 <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                    <Title level={1} style={{ color: 'white', marginBottom: 16 }}>Apply Online</Title>
+                    <Title level={1} style={{ color: 'white', marginBottom: 16 }}>Pre-Registration</Title>
                     <Paragraph style={{ color: 'rgba(255,255,255,0.9)', fontSize: 18 }}>
                         Pre-register for your Senior Citizen ID online. Complete this form and visit our office with your documents.
                     </Paragraph>
@@ -451,8 +515,7 @@ const Apply = () => {
                                         <Col xs={24} sm={12}>
                                             <Form.Item
                                                 name="house_number"
-                                                label={<span>House No. <span style={{ color: '#fa8c16' }}>*</span></span>}
-                                                rules={[{ required: true, message: 'House number is required' }]}
+                                                label="House No."
                                             >
                                                 <Input placeholder="House number" size="large" />
                                             </Form.Item>
@@ -460,8 +523,7 @@ const Apply = () => {
                                         <Col xs={24} sm={12}>
                                             <Form.Item
                                                 name="street"
-                                                label={<span>Street <span style={{ color: '#fa8c16' }}>*</span></span>}
-                                                rules={[{ required: true, message: 'Street is required' }]}
+                                                label="Street"
                                             >
                                                 <Input placeholder="Street name" size="large" />
                                             </Form.Item>
@@ -543,6 +605,11 @@ const Apply = () => {
                                                     size="large"
                                                     style={{ backgroundColor: '#f5f5f5' }}
                                                     placeholder="Calculated from birthdate"
+                                                    suffix={calculatedAge !== null && getAgeCategory(calculatedAge) ? (
+                                                        <Tag color={getAgeCategory(calculatedAge).color} style={{ marginRight: 0 }}>
+                                                            {getAgeCategory(calculatedAge).label}
+                                                        </Tag>
+                                                    ) : null}
                                                 />
                                             </Form.Item>
                                         </Col>
@@ -559,6 +626,21 @@ const Apply = () => {
                                                     {genders.map((g) => (
                                                         <Option key={g.id} value={g.id}>
                                                             {g.name}
+                                                        </Option>
+                                                    ))}
+                                                </Select>
+                                            </Form.Item>
+                                        </Col>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item
+                                                name="civil_status_id"
+                                                label={<span>Civil Status <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                rules={[{ required: true, message: 'Civil status is required' }]}
+                                            >
+                                                <Select placeholder="Select Civil Status" size="large" allowClear>
+                                                    {civilStatuses.map((cs) => (
+                                                        <Option key={cs.id} value={cs.id}>
+                                                            {cs.name}
                                                         </Option>
                                                     ))}
                                                 </Select>
@@ -584,8 +666,15 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="mobile_number" label="Mobile Number">
-                                                <Input placeholder="09XX-XXX-XXXX" size="large" />
+                                            <Form.Item
+                                                name="mobile_number"
+                                                label={<span>Mobile Number <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                rules={[
+                                                    { required: true, message: 'Mobile number is required for SMS notifications' },
+                                                    { pattern: /^09\d{9}$/, message: 'Must be a valid PH mobile number (09XXXXXXXXX)' },
+                                                ]}
+                                            >
+                                                <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
                                             </Form.Item>
                                         </Col>
                                     </Row>
@@ -596,6 +685,13 @@ const Apply = () => {
                                                 <Input placeholder="(062) XXX-XXXX" size="large" />
                                             </Form.Item>
                                         </Col>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item name="email" label="Email">
+                                                <Input placeholder="email@example.com" size="large" />
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={16}>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="monthly_salary" label="Monthly Salary">
                                                 <InputNumber
@@ -623,6 +719,58 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                     </Row>
+
+                                    {/* Data Privacy Notice */}
+                                    <Divider />
+                                    <Card
+                                        style={{
+                                            background: '#f0f5ff',
+                                            border: '1px solid #adc6ff',
+                                            borderRadius: 12,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                                            <SafetyCertificateOutlined style={{ fontSize: 20, color: '#1d39c4' }} />
+                                            <Title level={5} style={{ margin: 0, color: '#1d39c4' }}>Data Privacy Notice</Title>
+                                        </div>
+                                        <div style={{
+                                            background: 'white',
+                                            borderRadius: 8,
+                                            padding: '12px 16px',
+                                            marginBottom: 12,
+                                            maxHeight: 160,
+                                            overflowY: 'auto',
+                                            fontSize: 13,
+                                            lineHeight: 1.7,
+                                            color: '#444',
+                                            border: '1px solid #e8e8e8',
+                                        }}>
+                                            <p style={{ marginBottom: 8 }}>
+                                                In compliance with <strong>Republic Act No. 10173</strong>, also known as the
+                                                <strong> Data Privacy Act of 2012</strong>, the Office for Senior Citizens Affairs (OSCA)
+                                                - Zamboanga City commits to protecting and respecting your personal data.
+                                            </p>
+                                            <p style={{ marginBottom: 8 }}>
+                                                By proceeding with this application, you acknowledge and consent to the following:
+                                            </p>
+                                            <ul style={{ paddingLeft: 20, marginBottom: 8 }}>
+                                                <li style={{ marginBottom: 4 }}>The personal information you provide, including but not limited to your name, birthdate, address, contact details, and family composition, will be <strong>collected, recorded, stored, processed, and used</strong> by OSCA for the purpose of processing your Senior Citizen ID application and providing government services and benefits.</li>
+                                                <li style={{ marginBottom: 4 }}>Your data may be <strong>shared with authorized government agencies</strong> (e.g., DSWD, PhilHealth, LGU offices) strictly for the purpose of delivering senior citizen benefits and services as mandated by <strong>Republic Act No. 9994</strong> (Expanded Senior Citizens Act of 2010).</li>
+                                                <li style={{ marginBottom: 4 }}>OSCA will implement <strong>reasonable and appropriate security measures</strong> to protect your personal data against unauthorized access, disclosure, or misuse.</li>
+                                                <li style={{ marginBottom: 4 }}>You have the right to <strong>access, correct, and request deletion</strong> of your personal data by contacting the OSCA Main Office.</li>
+                                            </ul>
+                                            <p style={{ margin: 0, fontStyle: 'italic', color: '#666' }}>
+                                                For concerns regarding your personal data, you may contact the OSCA Data Protection Officer at the City Hall, Zamboanga City.
+                                            </p>
+                                        </div>
+                                        <Checkbox
+                                            checked={privacyAgreed}
+                                            onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                            style={{ fontSize: 14 }}
+                                        >
+                                            <Text strong>I have read, understood, and agree to the Data Privacy Notice above.</Text>
+                                        </Checkbox>
+                                    </Card>
                                 </div>
                             )}
 
@@ -652,8 +800,11 @@ const Apply = () => {
                                             title={`Family Member ${index + 1}`}
                                         >
                                             <Row gutter={12}>
-                                                <Col xs={24} sm={8}>
-                                                    <Form.Item label="First Name" style={{ marginBottom: 8 }}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item
+                                                        label={<span>First Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                                        style={{ marginBottom: 8 }}
+                                                    >
                                                         <Input
                                                             value={member.first_name}
                                                             onChange={(e) => updateFamilyMember(member.id, 'first_name', e.target.value)}
@@ -661,8 +812,20 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={8}>
-                                                    <Form.Item label="Last Name" style={{ marginBottom: 8 }}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Middle Name" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.middle_name}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'middle_name', e.target.value)}
+                                                            placeholder="Middle name"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item
+                                                        label={<span>Last Name <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                                        style={{ marginBottom: 8 }}
+                                                    >
                                                         <Input
                                                             value={member.last_name}
                                                             onChange={(e) => updateFamilyMember(member.id, 'last_name', e.target.value)}
@@ -670,20 +833,112 @@ const Apply = () => {
                                                         />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={8}>
-                                                    <Form.Item label="Relationship" style={{ marginBottom: 8 }}>
-                                                        <Select
-                                                            value={member.relationship}
-                                                            onChange={(val) => updateFamilyMember(member.id, 'relationship', val)}
-                                                            placeholder="Select"
-                                                        >
-                                                            <Option value="Spouse">Spouse</Option>
-                                                            <Option value="Son">Son</Option>
-                                                            <Option value="Daughter">Daughter</Option>
-                                                            <Option value="Grandchild">Grandchild</Option>
-                                                            <Option value="Sibling">Sibling</Option>
-                                                            <Option value="Other">Other</Option>
-                                                        </Select>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Extension" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.extension}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'extension', e.target.value)}
+                                                            placeholder="Jr., Sr."
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                            <Row gutter={12}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item
+                                                        label={<span>Relationship <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                                        style={{ marginBottom: 8 }}
+                                                    >
+                                                        {member.relationship === '__other__' || (member.relationship && !['Spouse', 'Son', 'Daughter', 'Grandchild', 'Sibling', 'Parent', 'In-Law', 'Nephew/Niece'].includes(member.relationship)) ? (
+                                                            <Input
+                                                                value={member.relationship === '__other__' ? '' : member.relationship}
+                                                                onChange={(e) => updateFamilyMember(member.id, 'relationship', e.target.value)}
+                                                                placeholder="Specify relationship"
+                                                                addonAfter={
+                                                                    <a onClick={() => updateFamilyMember(member.id, 'relationship', '')}
+                                                                        style={{ fontSize: 12 }}
+                                                                    >Back</a>
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <Select
+                                                                value={member.relationship || undefined}
+                                                                onChange={(val) => updateFamilyMember(member.id, 'relationship', val)}
+                                                                placeholder="Select"
+                                                            >
+                                                                <Option value="Spouse">Spouse</Option>
+                                                                <Option value="Son">Son</Option>
+                                                                <Option value="Daughter">Daughter</Option>
+                                                                <Option value="Grandchild">Grandchild</Option>
+                                                                <Option value="Sibling">Sibling</Option>
+                                                                <Option value="Parent">Parent</Option>
+                                                                <Option value="In-Law">In-Law</Option>
+                                                                <Option value="Nephew/Niece">Nephew/Niece</Option>
+                                                                <Option value="__other__">Other (specify)</Option>
+                                                            </Select>
+                                                        )}
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Date of Birth" style={{ marginBottom: 8 }}>
+                                                        <DatePicker
+                                                            value={member.birthdate ? dayjs(member.birthdate) : null}
+                                                            onChange={(date) => updateFamilyMember(member.id, 'birthdate', date ? date.format('YYYY-MM-DD') : null)}
+                                                            style={{ width: '100%' }}
+                                                            placeholder="YYYY-MM-DD"
+                                                            format={['YYYY-MM-DD', 'MM/DD/YYYY']}
+                                                            allowClear
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Age" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.age !== '' && member.age !== null ? `${member.age}` : ''}
+                                                            readOnly
+                                                            placeholder="From birthdate"
+                                                            style={{ backgroundColor: '#f5f5f5' }}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Monthly Salary" style={{ marginBottom: 8 }}>
+                                                        <InputNumber
+                                                            value={member.monthly_salary}
+                                                            onChange={(value) => updateFamilyMember(member.id, 'monthly_salary', value)}
+                                                            placeholder="0.00"
+                                                            min={0}
+                                                            style={{ width: '100%' }}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                            <Row gutter={12}>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Mobile Number" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.mobile_number}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'mobile_number', e.target.value)}
+                                                            placeholder="09XXXXXXXXX"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Telephone Number" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.telephone_number}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'telephone_number', e.target.value)}
+                                                            placeholder="(062) XXX-XXXX"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={12} md={6}>
+                                                    <Form.Item label="Email" style={{ marginBottom: 8 }}>
+                                                        <Input
+                                                            value={member.email}
+                                                            onChange={(e) => updateFamilyMember(member.id, 'email', e.target.value)}
+                                                            placeholder="email@example.com"
+                                                        />
                                                     </Form.Item>
                                                 </Col>
                                             </Row>
@@ -751,10 +1006,11 @@ const Apply = () => {
                                 <div>
                                     <Title level={4} style={{ marginBottom: 24 }}>Review Your Information</Title>
                                     <Card style={{ background: '#f9fafb', borderRadius: 12, marginBottom: 24 }}>
-                                        <Row gutter={[16, 16]}>
-                                            <Col span={24}>
+                                        <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Personal Information</Title>
+                                        <Row gutter={[16, 8]}>
+                                            <Col xs={24}>
                                                 <Text type="secondary">Full Name</Text>
-                                                <div><Text strong>{`${formData.first_name || ''} ${formData.middle_name || ''} ${formData.last_name || ''} ${formData.extension || ''}`}</Text></div>
+                                                <div><Text strong>{`${formData.first_name || ''} ${formData.middle_name || ''} ${formData.last_name || ''} ${formData.extension || ''}`.trim() || '-'}</Text></div>
                                             </Col>
                                             <Col xs={12}>
                                                 <Text type="secondary">Birthdate</Text>
@@ -769,25 +1025,119 @@ const Apply = () => {
                                                 <div><Text strong>{genders.find(g => g.id === formData.gender_id)?.name || '-'}</Text></div>
                                             </Col>
                                             <Col xs={12}>
-                                                <Text type="secondary">Mobile</Text>
+                                                <Text type="secondary">Civil Status</Text>
+                                                <div><Text strong>{civilStatuses.find(cs => cs.id === formData.civil_status_id)?.name || '-'}</Text></div>
+                                            </Col>
+                                        </Row>
+
+                                        <Divider style={{ margin: '16px 0' }} />
+                                        <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Contact & Background</Title>
+                                        <Row gutter={[16, 8]}>
+                                            <Col xs={24}>
+                                                <Text type="secondary">Address</Text>
+                                                <div><Text strong>{`${formData.house_number || ''} ${formData.street || ''}, ${barangays.find(b => b.id === formData.barangay_id)?.name || ''}, Zamboanga City`.replace(/^\s*,/, '')}</Text></div>
+                                            </Col>
+                                            <Col xs={12}>
+                                                <Text type="secondary">Mobile Number</Text>
                                                 <div><Text strong>{formData.mobile_number || '-'}</Text></div>
                                             </Col>
-                                            <Divider style={{ margin: '12px 0' }} />
-                                            <Col span={24}>
-                                                <Text type="secondary">Address</Text>
-                                                <div><Text strong>{`${formData.house_number || ''} ${formData.street || ''}, ${barangays.find(b => b.id === formData.barangay_id)?.name || ''}, Zamboanga City`}</Text></div>
+                                            <Col xs={12}>
+                                                <Text type="secondary">Telephone Number</Text>
+                                                <div><Text strong>{formData.telephone_number || '-'}</Text></div>
                                             </Col>
-                                            {familyMembers.length > 0 && (
-                                                <Col span={24}>
-                                                    <Text type="secondary">Family Members</Text>
-                                                    <div><Text strong>{familyMembers.filter(m => m.first_name).length} members listed</Text></div>
-                                                </Col>
-                                            )}
+                                            <Col xs={12}>
+                                                <Text type="secondary">Educational Attainment</Text>
+                                                <div><Text strong>{educationalAttainments.find(ea => ea.id === formData.educational_attainment_id)?.name || '-'}</Text></div>
+                                            </Col>
+                                            <Col xs={12}>
+                                                <Text type="secondary">Monthly Salary</Text>
+                                                <div><Text strong>{formData.monthly_salary ? `₱${Number(formData.monthly_salary).toLocaleString()}` : '-'}</Text></div>
+                                            </Col>
+                                            <Col xs={12}>
+                                                <Text type="secondary">Occupation</Text>
+                                                <div><Text strong>{formData.occupation || '-'}</Text></div>
+                                            </Col>
+                                            <Col xs={12}>
+                                                <Text type="secondary">Other Skills</Text>
+                                                <div><Text strong>{formData.other_skills || '-'}</Text></div>
+                                            </Col>
                                         </Row>
+
+                                        {familyMembers.filter(m => m.first_name).length > 0 && (
+                                            <>
+                                                <Divider style={{ margin: '16px 0' }} />
+                                                <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Family Composition</Title>
+                                                {familyMembers.filter(m => m.first_name).map((m, i) => (
+                                                    <Card key={m.id} size="small" style={{ marginBottom: 8, background: '#fff' }}>
+                                                        <Row gutter={[16, 4]}>
+                                                            <Col xs={12}>
+                                                                <Text type="secondary">Name</Text>
+                                                                <div><Text strong>{`${m.first_name} ${m.middle_name || ''} ${m.last_name || ''} ${m.extension || ''}`.trim()}</Text></div>
+                                                            </Col>
+                                                            <Col xs={12}>
+                                                                <Text type="secondary">Relationship</Text>
+                                                                <div><Text strong>{m.relationship || '-'}</Text></div>
+                                                            </Col>
+                                                            <Col xs={12}>
+                                                                <Text type="secondary">Age</Text>
+                                                                <div><Text strong>{m.age || '-'}</Text></div>
+                                                            </Col>
+                                                            <Col xs={12}>
+                                                                <Text type="secondary">Monthly Salary</Text>
+                                                                <div><Text strong>{m.monthly_salary ? `₱${Number(m.monthly_salary).toLocaleString()}` : '-'}</Text></div>
+                                                            </Col>
+                                                        </Row>
+                                                    </Card>
+                                                ))}
+                                            </>
+                                        )}
+
+                                        {(formData.target_sectors?.length > 0 || formData.sub_categories?.length > 0) && (
+                                            <>
+                                                <Divider style={{ margin: '16px 0' }} />
+                                                <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Association</Title>
+                                                <Row gutter={[16, 8]}>
+                                                    {formData.target_sectors?.length > 0 && (
+                                                        <Col span={24}>
+                                                            <Text type="secondary">Target Sectors</Text>
+                                                            <div style={{ marginTop: 4 }}>{formData.target_sectors.map((s, i) => (
+                                                                <span key={i} style={{
+                                                                    display: 'inline-block',
+                                                                    background: '#dbeafe',
+                                                                    color: '#2563eb',
+                                                                    padding: '2px 10px',
+                                                                    borderRadius: 12,
+                                                                    marginRight: 6,
+                                                                    marginBottom: 4,
+                                                                    fontSize: 13,
+                                                                }}>{s}</span>
+                                                            ))}</div>
+                                                        </Col>
+                                                    )}
+                                                    {formData.sub_categories?.length > 0 && (
+                                                        <Col span={24}>
+                                                            <Text type="secondary">Sub-Categories</Text>
+                                                            <div style={{ marginTop: 4 }}>{formData.sub_categories.map((s, i) => (
+                                                                <span key={i} style={{
+                                                                    display: 'inline-block',
+                                                                    background: '#dcfce7',
+                                                                    color: '#16a34a',
+                                                                    padding: '2px 10px',
+                                                                    borderRadius: 12,
+                                                                    marginRight: 6,
+                                                                    marginBottom: 4,
+                                                                    fontSize: 13,
+                                                                }}>{s}</span>
+                                                            ))}</div>
+                                                        </Col>
+                                                    )}
+                                                </Row>
+                                            </>
+                                        )}
                                     </Card>
                                     <Card style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 12 }}>
                                         <Text>
-                                            <strong>Important:</strong> After submitting, please visit the OSCA office with the following:
+                                            <strong>Important:</strong> After submitting this form, please note that you are NOT YET officially registered with OSCA. Online submission is only the initial step of the application process. To complete your registration, you must personally visit the nearest OSCA office and bring the following required documents:
                                             <ul style={{ marginTop: 8, paddingLeft: 20 }}>
                                                 <li>Birth Certificate (PSA/NSO)</li>
                                                 <li>Barangay Certificate</li>
@@ -807,7 +1157,13 @@ const Apply = () => {
                                     </Button>
                                 ) : <div />}
                                 {currentStep < steps.length - 1 ? (
-                                    <Button type="primary" size="large" onClick={handleNext} style={{ background: '#4338ca', borderRadius: 8 }}>
+                                    <Button
+                                        type="primary"
+                                        size="large"
+                                        onClick={handleNext}
+                                        disabled={currentStep === 0 && !privacyAgreed}
+                                        style={{ background: (currentStep === 0 && !privacyAgreed) ? undefined : '#4338ca', borderRadius: 8 }}
+                                    >
                                         Next <ArrowRightOutlined />
                                     </Button>
                                 ) : (
@@ -825,8 +1181,8 @@ const Apply = () => {
                         </Form>
                     </Card>
                 </div>
-            </section>
-        </div>
+            </section >
+        </div >
     );
 };
 

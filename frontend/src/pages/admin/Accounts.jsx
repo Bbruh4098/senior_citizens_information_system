@@ -252,7 +252,7 @@ function Accounts() {
             ),
         },
         {
-            title: 'Branch/Barangay',
+            title: 'Field Office / Barangay',
             key: 'assignment',
             render: (_, record) => {
                 if (record.role_id === 1) return <Text type="secondary">Main Office</Text>;

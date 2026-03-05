@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Login user and create token.
-     */
+    use LogsAudit;
+    //Login user and create token.
     public function login(Request $request)
     {
         $request->validate([
@@ -36,6 +36,9 @@ class AuthController extends Controller
 
         // Create token
         $token = $user->createToken('auth-token')->plainTextToken;
+
+        // Audit log
+        $this->logAudit('login', 'users', $user->id, "Admin {$user->username} logged in", null, null, $user->full_name);
 
         return response()->json([
             'success' => true,
@@ -61,12 +64,14 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Logout user (revoke token).
-     */
+    //Logout user (revoke token).
+     
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        $this->logAudit('logout', 'users', $user->id, "Admin {$user->username} logged out", null, null, $user->full_name);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'success' => true,
@@ -74,9 +79,7 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Get current authenticated user.
-     */
+    // Get current authenticated user.
     public function me(Request $request)
     {
         $user = $request->user()->load(['role', 'branch', 'barangay']);

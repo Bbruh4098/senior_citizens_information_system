@@ -9,6 +9,8 @@ use App\Models\Barangay;
 use App\Models\Gender;
 use App\Models\SeniorCitizen;
 use App\Models\Contact;
+use App\Models\EducationalAttainment;
+use App\Models\CivilStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,16 +23,22 @@ class RegistrationController extends Controller
      */
     public function lookupOptions()
     {
-        // Get genders (exclude "Other" as per original form)
-        $genders = Gender::whereNotIn('name', ['Other'])->get(['id', 'name']);
+        // Get genders 
+        $genders = Gender::where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
+            ->get(['id', 'name']);
         
-        // Get educational attainments - note: uses 'level' column
+        // Get educational attainments
         $educationalAttainments = DB::table('educational_attainment')
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
             ->select('id', 'level as name')
             ->get();
         
-        // Get mobility levels - note: uses 'level' column  
+        // Get mobility levels
         $mobilityLevels = DB::table('mobility_levels')
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
             ->select('id', 'level as name')
             ->get();
         
@@ -39,12 +47,18 @@ class RegistrationController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
+        // Get civil statuses
+        $civilStatuses = \App\Models\CivilStatus::where('is_enabled', true)
+            ->orderBy('sort_order')->orderBy('id')
+            ->get(['id', 'name']);
+
         $options = [
             'genders' => $genders,
             'application_types' => ApplicationType::all(['id', 'name', 'description']),
             'educational_attainments' => $educationalAttainments,
             'mobility_levels' => $mobilityLevels,
             'branches' => $branches,
+            'civil_statuses' => $civilStatuses,
         ];
 
         return response()->json([
@@ -139,11 +153,13 @@ class RegistrationController extends Controller
                 'extension' => 'nullable|string|max:20',
                 'birthdate' => 'required|date',
                 'gender_id' => 'required|exists:genders,id',
+                'civil_status_id' => 'required|exists:civil_statuses,id',
                 'barangay_id' => 'required|exists:barangays,id',
                 'house_number' => 'nullable|string|max:100',
                 'street' => 'nullable|string|max:255',
-                'mobile_number' => 'nullable|string|max:20',
+                'mobile_number' => ['required', 'string', 'max:20', 'regex:/^09\d{9}$/'],
                 'telephone_number' => 'nullable|string|max:20',
+                'email' => 'nullable|email|max:100',
                 'educational_attainment_id' => 'nullable|integer',
                 'monthly_salary' => 'nullable|numeric',
                 'occupation' => 'nullable|string|max:200',
@@ -274,6 +290,12 @@ class RegistrationController extends Controller
             
             $applicationNumber = sprintf('APP-%s-%05d', $year, $nextNumber);
 
+            // Resolve lookup names for display
+            $genderName = $request->gender_id == 1 ? 'Male' : ($request->gender_id == 2 ? 'Female' : null);
+            $civilStatusName = $request->civil_status_id ? CivilStatus::find($request->civil_status_id)?->name : null;
+            $barangayName = $request->barangay_id ? Barangay::find($request->barangay_id)?->name : null;
+            $educAttainName = $request->educational_attainment_id ? EducationalAttainment::find($request->educational_attainment_id)?->level : null;
+
             // Build applicant_data JSON (stores all form data with capitalized names)
             $applicantData = [
                 'personal_info' => [
@@ -283,16 +305,22 @@ class RegistrationController extends Controller
                     'extension' => $extension,
                     'birthdate' => $request->birthdate,
                     'gender_id' => $request->gender_id,
+                    'gender_name' => $genderName,
+                    'civil_status_id' => $request->civil_status_id,
+                    'civil_status_name' => $civilStatusName,
                     'barangay_id' => $request->barangay_id,
+                    'barangay_name' => $barangayName,
                 ],
                 'contact_info' => [
                     'house_number' => $request->house_number,
                     'street' => $request->street,
                     'mobile_number' => $request->mobile_number,
                     'telephone_number' => $request->telephone_number,
+                    'email' => $request->email,
                 ],
                 'background_info' => [
                     'educational_attainment_id' => $request->educational_attainment_id,
+                    'educational_attainment_name' => $educAttainName,
                     'monthly_salary' => $request->monthly_salary,
                     'occupation' => $request->occupation,
                     'other_skills' => $request->other_skills,
@@ -403,11 +431,13 @@ class RegistrationController extends Controller
             'extension' => 'nullable|string|max:20',
             'birthdate' => 'required|date',
             'gender_id' => 'required|exists:genders,id',
+            'civil_status_id' => 'required|exists:civil_statuses,id',
             'barangay_id' => 'required|exists:barangays,id',
             'house_number' => 'nullable|string|max:100',
             'street' => 'nullable|string|max:255',
             'mobile_number' => 'nullable|string|max:20',
             'telephone_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:100',
             'educational_attainment_id' => 'nullable|integer',
             'monthly_salary' => 'nullable|numeric',
             'occupation' => 'nullable|string|max:200',
@@ -429,6 +459,7 @@ class RegistrationController extends Controller
                     'extension' => $request->extension,
                     'birthdate' => $request->birthdate,
                     'gender_id' => $request->gender_id,
+                    'civil_status_id' => $request->civil_status_id,
                     'barangay_id' => $request->barangay_id,
                 ],
                 'contact_info' => [
@@ -436,6 +467,7 @@ class RegistrationController extends Controller
                     'street' => $request->street,
                     'mobile_number' => $request->mobile_number,
                     'telephone_number' => $request->telephone_number,
+                    'email' => $request->email,
                 ],
                 'background_info' => [
                     'educational_attainment_id' => $request->educational_attainment_id,
@@ -589,6 +621,55 @@ class RegistrationController extends Controller
         return response()->json([
             'success' => true,
             'data' => $documents,
+        ]);
+    }
+
+    /*
+      Search for registered seniors to add as family members.
+      Returns basic info (name, birthdate, age) for auto-fill.
+     */
+    public function searchFamilySenior(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string|min:2',
+        ]);
+
+        $query = trim($request->query('query'));
+
+        $seniors = SeniorCitizen::where(function ($q) use ($query) {
+                $q->where('first_name', 'like', "%{$query}%")
+                  ->orWhere('last_name', 'like', "%{$query}%")
+                  ->orWhere('osca_id', 'like', "%{$query}%")
+                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$query}%"]);
+            })
+            ->where('is_active', true)
+            ->where('is_deceased', false)
+            ->with(['barangay', 'contact'])
+            ->limit(10)
+            ->get();
+
+        $results = $seniors->map(function ($senior) {
+            return [
+                'id' => $senior->id,
+                'osca_id' => $senior->osca_id,
+                'first_name' => $senior->first_name,
+                'middle_name' => $senior->middle_name,
+                'last_name' => $senior->last_name,
+                'extension' => $senior->extension,
+                'full_name' => $senior->full_name,
+                'birthdate' => $senior->birthdate?->format('Y-m-d'),
+                'age' => $senior->age,
+                'barangay' => $senior->barangay?->name,
+                'monthly_salary' => $senior->monthly_salary,
+                'mobile_number' => $senior->contact?->mobile_number,
+                'telephone_number' => $senior->contact?->telephone_number,
+                'email' => $senior->contact?->email,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $results,
         ]);
     }
 }

@@ -412,7 +412,7 @@ const PreRegistrations = () => {
 
             {/* Review Modal */}
             <Modal
-                title={reviewModal.type === 'fo' ? 'FO/Branch Review' : 'Main Admin Review'}
+                title={reviewModal.type === 'fo' ? 'Field Office Review' : 'Main Admin Review'}
                 open={reviewModal.visible}
                 onCancel={() => setReviewModal({ visible: false, item: null, type: '', loading: false })}
                 footer={null}

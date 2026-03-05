@@ -390,7 +390,7 @@ const Archives = () => {
                 </Descriptions.Item>
               )}
               {selected.branch && (
-                <Descriptions.Item label="Branch">
+                <Descriptions.Item label="Field Office">
                   {selected.branch.name}
                 </Descriptions.Item>
               )}

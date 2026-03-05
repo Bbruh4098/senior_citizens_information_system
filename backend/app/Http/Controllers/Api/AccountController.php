@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Branch;
 use App\Models\Barangay;
 use App\Models\UserRole;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,7 @@ use Illuminate\Validation\Rule;
 
 class AccountController extends Controller
 {
+    use LogsAudit;
     /**
      * List all admin accounts with filters
      */
@@ -139,6 +141,14 @@ class AccountController extends Controller
         $account = User::create($validated);
         $account->load(['role', 'branch', 'barangay']);
 
+        $this->logAudit(
+            'account_create', 'users', $account->id,
+            "Created account: {$account->username} ({$account->full_name})",
+            null,
+            ['username' => $account->username, 'role_id' => $account->role_id, 'branch_id' => $account->branch_id],
+            $account->full_name
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Account created successfully',
@@ -194,8 +204,19 @@ class AccountController extends Controller
             }
         }
 
+        $diff = $this->buildChangeDiff($account, $validated);
+
         $account->update($validated);
         $account->load(['role', 'branch', 'barangay']);
+
+        if (!empty($diff['changed'])) {
+            $this->logAudit(
+                'account_update', 'users', $account->id,
+                "Updated account: {$account->username} — changed: " . implode(', ', $diff['changed']),
+                $diff['old'], $diff['new'],
+                $account->full_name
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -223,6 +244,13 @@ class AccountController extends Controller
         }
 
         $account = User::findOrFail($id);
+
+        $this->logAudit(
+            'account_delete', 'users', $account->id,
+            "Deleted account: {$account->username} ({$account->full_name})",
+            null, null, $account->full_name
+        );
+
         $account->delete();
 
         return response()->json([
@@ -250,8 +278,17 @@ class AccountController extends Controller
         }
 
         $account = User::findOrFail($id);
+        $oldStatus = $account->is_active;
         $account->is_active = !$account->is_active;
         $account->save();
+
+        $this->logAudit(
+            'account_toggle_status', 'users', $account->id,
+            "Toggled account {$account->username}: " . ($account->is_active ? 'enabled' : 'disabled'),
+            ['is_active' => $oldStatus],
+            ['is_active' => $account->is_active],
+            $account->full_name
+        );
 
         return response()->json([
             'success' => true,
@@ -278,6 +315,12 @@ class AccountController extends Controller
         $account = User::findOrFail($id);
         $account->password_hash = Hash::make($validated['password']);
         $account->save();
+
+        $this->logAudit(
+            'account_reset_password', 'users', $account->id,
+            "Password reset for account: {$account->username}",
+            null, null, $account->full_name
+        );
 
         return response()->json([
             'success' => true,

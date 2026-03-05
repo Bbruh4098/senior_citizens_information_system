@@ -18,6 +18,10 @@ import {
     MenuOutlined,
     GiftOutlined,
     CloseOutlined,
+    AuditOutlined,
+    DatabaseOutlined,
+    BankOutlined,
+    MessageOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -28,6 +32,13 @@ const { useBreakpoint } = Grid;
 const AdminLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [openKeys, setOpenKeys] = useState(() => {
+        const path = window.location.pathname;
+        if (path.startsWith('/admin/benefits')) return ['/admin/benefits-menu'];
+        if (path.startsWith('/admin/registration')) return ['/admin/registration'];
+        if (path.startsWith('/admin/settings') || path.startsWith('/admin/accounts')) return ['/admin/settings'];
+        return ['/admin/registration'];
+    });
     const { user, logout, isMainAdmin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -63,18 +74,16 @@ const AdminLayout = () => {
             label: 'Registration',
             children: [
                 { key: '/admin/registration/new', label: 'New ID' },
-                // Hide Revalidation and Lost/Damaged from FO
-                ...(!isFO ? [
-                    { key: '/admin/registration/revalidation', label: 'Revalidation' },
-                    { key: '/admin/registration/lost-damaged', label: 'Lost/Damaged' },
-                ] : []),
+                { key: '/admin/registration/renew', label: 'Renew ID' },
+                { key: '/admin/registration/replace-lost', label: 'Replace Lost ID' },
+                { key: '/admin/registration/replace-damaged', label: 'Replace Damaged ID' },
                 { key: '/admin/registration/list', label: 'Application List' },
             ],
         },
         {
             key: '/admin/pre-registrations',
             icon: <FileTextOutlined />,
-            label: 'Online Applications',
+            label: 'Online  Pre-Registrations',
         },
         {
             key: '/admin/seniors',
@@ -88,16 +97,19 @@ const AdminLayout = () => {
             label: 'ID Printing',
         }] : []),
         {
-            key: '/admin/benefits',
+            key: '/admin/benefits-menu',
             icon: <GiftOutlined />,
             label: 'Benefits',
+            children: [
+                { key: '/admin/benefits', label: 'Benefits Eligibility & Claims' },
+                ...(isMainAdmin() ? [{ key: '/admin/benefits/configuration', label: 'Benefits Configuration' }] : []),
+            ],
         },
-        // Complaints - temporarily hidden
-        // {
-        //     key: '/admin/complaints',
-        //     icon: <ExclamationCircleOutlined />,
-        //     label: 'Complaints',
-        // },
+        {
+            key: '/admin/complaints',
+            icon: <ExclamationCircleOutlined />,
+            label: 'Complaints',
+        },
         {
             key: '/admin/announcements',
             icon: <NotificationOutlined />,
@@ -120,9 +132,11 @@ const AdminLayout = () => {
             icon: <SettingOutlined />,
             label: 'Settings',
             children: [
-                { key: '/admin/accounts', label: 'Accounts' },
-                { key: '/admin/settings/branches', label: 'Branches & Barangays' },
-                { key: '/admin/settings/benefits', label: 'Benefit Types' },
+                { key: '/admin/accounts', icon: <UserOutlined />, label: 'Accounts' },
+                { key: '/admin/settings/branches', icon: <BankOutlined />, label: 'Field Offices and Barangays' },
+                { key: '/admin/settings/data-management', icon: <DatabaseOutlined />, label: 'Data Management' },
+                { key: '/admin/settings/sms', icon: <MessageOutlined />, label: 'SMS Settings' },
+                { key: '/admin/audit-log', icon: <AuditOutlined />, label: 'Audit Log' },
             ],
         }] : []),
     ];
@@ -148,7 +162,7 @@ const AdminLayout = () => {
     const getRoleBadgeColor = (roleId) => {
         switch (roleId) {
             case 1: return '#52c41a'; // Main Admin - Green
-            case 2: return '#1890ff'; // Branch Admin - Blue
+            case 2: return '#1890ff'; // FO Admin - Blue
             case 3: return '#faad14'; // Barangay Admin - Gold
             default: return '#8c8c8c';
         }
@@ -184,11 +198,16 @@ const AdminLayout = () => {
                 theme="dark"
                 mode="inline"
                 selectedKeys={[location.pathname]}
-                defaultOpenKeys={['/admin/registration']}
+                openKeys={openKeys}
+                onOpenChange={(keys) => setOpenKeys(keys)}
                 items={menuItems}
                 onClick={({ key }) => {
-                    navigate(key);
-                    if (isMobile) setMobileMenuOpen(false);
+                    // Only navigate if clicking on a leaf item (not a parent with children)
+                    const isParentItem = menuItems.some(item => item.key === key && item.children);
+                    if (!isParentItem) {
+                        navigate(key);
+                        if (isMobile) setMobileMenuOpen(false);
+                    }
                 }}
                 style={{
                     background: 'transparent',
@@ -210,8 +229,8 @@ const AdminLayout = () => {
                     width={260}
                     collapsedWidth={80}
                     style={{
-                        background: 'linear-gradient(180deg, #312e81 0%, #4338ca 100%)',
-                        boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)',
+                        background: '#DA1E37',
+                        boxShadow: '2px 0 8px rgba(0, 0, 0, 1)',
                         position: 'fixed',
                         left: 0,
                         top: 0,
@@ -231,7 +250,7 @@ const AdminLayout = () => {
                 onClose={() => setMobileMenuOpen(false)}
                 width={280}
                 styles={{
-                    body: { padding: 0, background: 'linear-gradient(180deg, #312e81 0%, #4338ca 100%)' },
+                    body: { padding: 0, background: '#DA1E37' },
                     header: { display: 'none' },
                 }}
             >
@@ -284,7 +303,7 @@ const AdminLayout = () => {
                         <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s' }}>
                             <Avatar
                                 style={{
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    background: '#006fd6',
                                 }}
                                 icon={<UserOutlined />}
                             />

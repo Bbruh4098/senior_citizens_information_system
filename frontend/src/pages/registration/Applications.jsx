@@ -50,6 +50,7 @@ const Applications = () => {
     const [filters, setFilters] = useState({
         search: '',
         status: '',
+        application_type: '',
     });
     const [detailsModalVisible, setDetailsModalVisible] = useState(false);
     const [selectedApplicationId, setSelectedApplicationId] = useState(null);
@@ -67,6 +68,7 @@ const Applications = () => {
                 per_page: pagination.pageSize,
                 search: filters.search || undefined,
                 status: filters.status || undefined,
+                application_type: filters.application_type || undefined,
             };
             const response = await applicationsApi.getList(params);
             const data = response.data;
@@ -103,6 +105,11 @@ const Applications = () => {
         setPagination(prev => ({ ...prev, current: 1 }));
     };
 
+    const handleTypeFilter = (value) => {
+        setFilters(prev => ({ ...prev, application_type: value }));
+        setPagination(prev => ({ ...prev, current: 1 }));
+    };
+
     const handleTableChange = (paginationInfo) => {
         setPagination(prev => ({
             ...prev,
@@ -123,8 +130,23 @@ const Applications = () => {
     };
 
     const handleEdit = (record) => {
-        // Navigate to edit page with application data
-        navigate(`/admin/registration/new?edit=${record.id}`);
+        // Navigate to correct edit page based on application type
+        // application_type_id: 1 = New ID, 2 = Renewal, 3 = Replace Lost, 4 = Replace Damaged
+        const typeId = record.application_type_id || record.application_type?.id;
+
+        if (typeId === 2) {
+            // Renewal application
+            navigate(`/admin/registration/renew?edit=${record.id}`);
+        } else if (typeId === 3) {
+            // Replace Lost ID application
+            navigate(`/admin/registration/replace-lost?edit=${record.id}`);
+        } else if (typeId === 4) {
+            // Replace Damaged ID application (when implemented)
+            navigate(`/admin/registration/replace-damaged?edit=${record.id}`);
+        } else {
+            // Default: New ID application
+            navigate(`/admin/registration/new?edit=${record.id}`);
+        }
     };
 
     const handleStatusUpdate = async (id, newStatus) => {
@@ -214,10 +236,32 @@ const Applications = () => {
         {
             title: 'Date',
             key: 'date',
-            width: 150,
+            width: 120,
             render: (_, record) => {
                 const date = record.submission_date || record.created_at;
                 return date ? dayjs(date).format('MMM D, YYYY') : '-';
+            },
+        },
+        {
+            title: 'Submitted By',
+            key: 'submitted_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.submitter) {
+                    return `${record.submitter.first_name} ${record.submitter.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
+            },
+        },
+        {
+            title: 'Approved By',
+            key: 'approved_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.approver) {
+                    return `${record.approver.first_name} ${record.approver.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
             },
         },
         {
@@ -285,7 +329,7 @@ const Applications = () => {
                     <Col xs={12} sm={6}>
                         <Card size="small">
                             <Statistic
-                                title="Pending"
+                                title="Drafts"
                                 value={statistics.pending || 0}
                                 valueStyle={{ color: '#8c8c8c' }}
                             />
@@ -359,7 +403,7 @@ const Applications = () => {
             {/* Filters */}
             <Card style={{ marginBottom: 16 }}>
                 <Row gutter={16} align="middle">
-                    <Col xs={24} sm={12} md={8}>
+                    <Col xs={24} sm={12} md={6}>
                         <Input.Search
                             placeholder="Search by name or application number"
                             allowClear
@@ -368,7 +412,7 @@ const Applications = () => {
                             onChange={(e) => !e.target.value && handleSearch('')}
                         />
                     </Col>
-                    <Col xs={24} sm={8} md={6}>
+                    <Col xs={24} sm={8} md={5}>
                         <Select
                             placeholder="Filter by Status"
                             allowClear
@@ -379,13 +423,29 @@ const Applications = () => {
                             <Option value="Draft">Draft</Option>
                             <Option value="For Verification">For Verification</Option>
                             <Option value="Approved">Approved</Option>
+                            <Option value="Printed">Printed</Option>
+                            <Option value="Claimed">Claimed</Option>
+                        </Select>
+                    </Col>
+                    <Col xs={24} sm={8} md={5}>
+                        <Select
+                            placeholder="Filter by Type"
+                            allowClear
+                            style={{ width: '100%' }}
+                            onChange={handleTypeFilter}
+                            value={filters.application_type || undefined}
+                        >
+                            <Option value="1">New ID</Option>
+                            <Option value="2">Renewal</Option>
+                            <Option value="3">Replace Lost ID</Option>
+                            <Option value="4">Replace Damaged ID</Option>
                         </Select>
                     </Col>
                     <Col>
                         <Button
                             icon={<ReloadOutlined />}
                             onClick={() => {
-                                setFilters({ search: '', status: '' });
+                                setFilters({ search: '', status: '', application_type: '' });
                                 setPagination(prev => ({ ...prev, current: 1 }));
                             }}
                         >

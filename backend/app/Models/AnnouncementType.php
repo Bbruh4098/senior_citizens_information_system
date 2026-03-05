@@ -8,7 +8,7 @@ class AnnouncementType extends Model
 {
     protected $table = 'announcement_types';
 
-    protected $fillable = ['name', 'code', 'description'];
+    protected $fillable = ['name', 'code', 'description', 'is_enabled', 'sort_order'];
 
     public function announcements()
     {

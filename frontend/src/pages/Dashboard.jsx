@@ -14,7 +14,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 
-const COLORS = ['#1890ff', '#52c41a', '#faad14', '#eb2f96', '#722ed1'];
+const COLORS = ['#ff00bfff', '#006fd6ff', '#001427', '#708d81', '#f4d58d', '#bf0603', '#8d0801'];
+// const COLORS = ['#1890ff', '#52c41a', '#faad14', '#eb2f96', '#722ed1'];
 
 const Dashboard = () => {
     const { user } = useAuth();
@@ -59,29 +60,29 @@ const Dashboard = () => {
             title: 'Active Senior Citizens',
             value: stats.active_seniors,
             icon: <UserOutlined />,
-            color: '#1890ff',
-            gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            bgColor: '#001427',
+            iconBg: '#0a2540',
         },
         {
             title: 'Pending Applications',
             value: stats.pending_applications,
             icon: <FileTextOutlined />,
-            color: '#faad14',
-            gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            bgColor: '#bf0603',
+            iconBg: '#d41b18',
         },
         {
             title: 'IDs Ready for Claim',
             value: stats.id_claimable,
             icon: <IdcardOutlined />,
-            color: '#52c41a',
-            gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            bgColor: '#708d81',
+            iconBg: '#849e93',
         },
         {
-            title: 'Released IDs (This Month)',
+            title: 'Released IDs',
             value: stats.released_ids,
             icon: <CheckCircleOutlined />,
-            color: '#722ed1',
-            gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            bgColor: '#8d0801',
+            iconBg: '#a31a13',
         },
     ];
 
@@ -135,7 +136,7 @@ const Dashboard = () => {
             {/* Welcome Header */}
             <div style={{ marginBottom: 24 }}>
                 <Title level={3} style={{ margin: 0 }}>
-                    Welcome back, {user?.full_name?.split(' ')[0] || 'Admin'}! 👋
+                    Welcome back, {user?.full_name?.split(' ')[0] || 'Admin'}!
                 </Title>
                 <Text type="secondary">
                     Here's what's happening with OSCA today.
@@ -148,27 +149,27 @@ const Dashboard = () => {
                     <Col xs={24} sm={12} lg={6} key={index}>
                         <Card
                             style={{
-                                background: stat.gradient,
+                                background: stat.bgColor,
                                 border: 'none',
-                                borderRadius: 12,
-                                overflow: 'hidden',
+                                borderRadius: 8,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
                             }}
                             bodyStyle={{ padding: 20 }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <div>
-                                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
+                                    <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500 }}>
                                         {stat.title}
                                     </Text>
-                                    <div style={{ fontSize: 32, fontWeight: 700, color: '#fff', marginTop: 8 }}>
+                                    <div style={{ fontSize: 28, fontWeight: 600, color: '#fff', marginTop: 8 }}>
                                         {stat.value.toLocaleString()}
                                     </div>
                                 </div>
                                 <div style={{
-                                    width: 56,
-                                    height: 56,
-                                    borderRadius: 12,
-                                    background: 'rgba(255,255,255,0.2)',
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 8,
+                                    background: stat.iconBg,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -194,12 +195,15 @@ const Dashboard = () => {
                     >
                         {ageData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={ageData}>
+                                <BarChart data={[...ageData].sort((a, b) => {
+                                    const order = ['60-69', '70-79', '80-89', '90-99', '100+'];
+                                    return order.indexOf(a.age_group) - order.indexOf(b.age_group);
+                                })}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="age_group" />
                                     <YAxis />
                                     <Tooltip />
-                                    <Bar dataKey="count" fill="#1890ff" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="count" fill="#001427" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (

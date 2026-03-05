@@ -198,8 +198,12 @@ function SeniorEditModal({ visible, seniorId, onClose, onSuccess }) {
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="civil_status_id" label="Civil Status">
-                                <Select placeholder="Select Status" allowClear>
+                            <Form.Item
+                                name="civil_status_id"
+                                label="Civil Status"
+                                rules={[{ required: true, message: 'Required' }]}
+                            >
+                                <Select placeholder="Select Status">
                                     {lookupOptions?.civil_statuses?.map(cs => (
                                         <Option key={cs.id} value={cs.id}>{cs.name}</Option>
                                     ))}

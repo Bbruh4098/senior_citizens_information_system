@@ -15,6 +15,9 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Seniors from "./pages/Seniors";
 import NewApplication from "./pages/registration/NewApplication";
+import ReplaceLostApplication from "./pages/registration/ReplaceLostApplication";
+import ReplaceDamagedApplication from "./pages/registration/ReplaceDamagedApplication";
+import RenewApplication from "./pages/registration/RenewApplication";
 import Applications from "./pages/registration/Applications";
 import IdPrinting from "./pages/IdPrinting";
 import PreRegistrations from "./pages/PreRegistrations";
@@ -22,8 +25,13 @@ import Benefits from "./pages/Benefits";
 import Accounts from "./pages/admin/Accounts";
 import BranchManagement from "./pages/admin/BranchManagement";
 import BenefitSettings from "./pages/admin/BenefitSettings";
+import BenefitComplaints from "./pages/admin/BenefitComplaints";
+import AuditLog from "./pages/admin/AuditLog";
+import DataManagement from "./pages/admin/DataManagement";
+import SmsSettings from "./pages/admin/SmsSettings";
 import Announcements from "./pages/Announcements";
 import Archives from "./pages/Archives";
+import Heatmap from "./pages/Heatmap";
 
 // Public Pages
 import Home from "./pages/public/Home";
@@ -37,6 +45,7 @@ import Apply from "./pages/public/Apply";
 import SeniorLogin from "./pages/senior/SeniorLogin";
 import SeniorDashboard from "./pages/senior/SeniorDashboard";
 import SeniorBenefits from "./pages/senior/SeniorBenefits";
+import SeniorComplaints from "./pages/senior/SeniorComplaints";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -94,7 +103,7 @@ function App() {
                 path="/senior/announcements"
                 element={<SeniorDashboard />}
               />
-              <Route path="/senior/complaints" element={<SeniorDashboard />} />
+              <Route path="/senior/complaints" element={<SeniorComplaints />} />
 
               {/* ============ ADMIN PORTAL ROUTES ============ */}
               <Route
@@ -117,14 +126,9 @@ function App() {
                     element={<Navigate to="/admin/registration/list" replace />}
                   />
                   <Route path="new" element={<NewApplication />} />
-                  <Route
-                    path="revalidation"
-                    element={<ComingSoon title="Revalidation/Update" />}
-                  />
-                  <Route
-                    path="lost-damaged"
-                    element={<ComingSoon title="Lost/Damaged ID" />}
-                  />
+                  <Route path="renew" element={<RenewApplication />} />
+                  <Route path="replace-lost" element={<ReplaceLostApplication />} />
+                  <Route path="replace-damaged" element={<ReplaceDamagedApplication />} />
                   <Route path="list" element={<Applications />} />
                 </Route>
                 <Route path="id-printing" element={<IdPrinting />} />
@@ -135,13 +139,13 @@ function App() {
                 />
                 <Route
                   path="complaints"
-                  element={<ComingSoon title="Complaints" />}
+                  element={<BenefitComplaints />}
                 />
                 <Route path="announcements" element={<Announcements />} />
                 <Route path="archives" element={<Archives />} />
                 <Route
                   path="heatmap"
-                  element={<ComingSoon title="Heat Map" />}
+                  element={<Heatmap />}
                 />
                 <Route
                   path="accounts"
@@ -160,10 +164,34 @@ function App() {
                   }
                 />
                 <Route
-                  path="settings/benefits"
+                  path="benefits/configuration"
                   element={
                     <ProtectedRoute allowedRoles={[1]}>
                       <BenefitSettings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="audit-log"
+                  element={
+                    <ProtectedRoute allowedRoles={[1]}>
+                      <AuditLog />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="settings/data-management"
+                  element={
+                    <ProtectedRoute allowedRoles={[1]}>
+                      <DataManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="settings/sms"
+                  element={
+                    <ProtectedRoute allowedRoles={[1]}>
+                      <SmsSettings />
                     </ProtectedRoute>
                   }
                 />

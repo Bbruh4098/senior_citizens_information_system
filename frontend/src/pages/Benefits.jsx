@@ -19,6 +19,7 @@ import {
     Descriptions,
     Divider,
     Alert,
+    Avatar,
 } from 'antd';
 import {
     GiftOutlined,
@@ -32,8 +33,11 @@ import {
     EyeOutlined,
     CloseCircleOutlined,
     DownloadOutlined,
+    ManOutlined,
+    WomanOutlined,
 } from '@ant-design/icons';
 import { benefitsApi } from '../services/api';
+import dayjs from 'dayjs';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
@@ -290,19 +294,28 @@ const Benefits = () => {
     // Claims table columns
     const claimsColumns = [
         {
-            title: 'OSCA ID',
-            dataIndex: ['senior', 'osca_id'],
-            key: 'osca_id',
-            width: 120,
-            render: (text) => <Text strong style={{ color: '#1890ff' }}>{text}</Text>,
-        },
-        {
-            title: 'Senior Name',
-            dataIndex: ['senior', 'full_name'],
-            key: 'full_name',
+            title: 'Senior Citizen',
+            key: 'senior_citizen',
+            width: 220,
             render: (_, record) => {
                 const senior = record.senior || {};
-                return `${senior.first_name || ''} ${senior.last_name || ''}`;
+                return (
+                    <Space>
+                        <Avatar
+                            style={{
+                                backgroundColor: senior.gender_id === 1 ? '#1890ff' : '#eb2f96'
+                            }}
+                            icon={senior.gender_id === 1 ? <ManOutlined /> : <WomanOutlined />}
+                        />
+                        <div>
+                            <Text strong>{senior.full_name || `${senior.first_name || ''} ${senior.last_name || ''}`}</Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {senior.osca_id || 'No OSCA ID'}
+                            </Text>
+                        </div>
+                    </Space>
+                );
             },
         },
         {
@@ -328,11 +341,11 @@ const Benefits = () => {
             ),
         },
         {
-            title: 'Year',
-            dataIndex: 'claim_year',
-            key: 'claim_year',
-            width: 80,
-            align: 'center',
+            title: 'Date Filed',
+            dataIndex: 'created_at',
+            key: 'date_filed',
+            width: 110,
+            render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '—',
         },
         {
             title: 'Status',
@@ -340,6 +353,40 @@ const Benefits = () => {
             key: 'status',
             width: 100,
             render: (status) => getStatusTag(status),
+        },
+        {
+            title: 'Filed By',
+            key: 'filed_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.claimer) {
+                    return `${record.claimer.first_name} ${record.claimer.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
+            },
+        },
+        {
+            title: 'Processed By',
+            key: 'processed_by',
+            width: 130,
+            render: (_, record) => {
+                const user = record.approver || record.rejecter;
+                if (user) {
+                    return `${user.first_name} ${user.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
+            },
+        },
+        {
+            title: 'Released By',
+            key: 'released_by',
+            width: 130,
+            render: (_, record) => {
+                if (record.releaser) {
+                    return `${record.releaser.first_name} ${record.releaser.last_name}`;
+                }
+                return <Text type="secondary">—</Text>;
+            },
         },
         {
             title: 'Actions',
@@ -462,7 +509,7 @@ const Benefits = () => {
         <div style={{ padding: 24 }}>
             <Title level={2} style={{ marginBottom: 24 }}>
                 <GiftOutlined style={{ marginRight: 12 }} />
-                Benefits Management
+                Benefits Eligibility and Claims
             </Title>
 
             {/* Statistics Cards */}
@@ -618,7 +665,7 @@ const Benefits = () => {
                                 onChange: (page, pageSize) =>
                                     setPagination({ ...pagination, current: page, pageSize }),
                             }}
-                            scroll={{ x: 1000 }}
+                            scroll={{ x: 1400 }}
                         />
                     </TabPane>
 
@@ -626,7 +673,7 @@ const Benefits = () => {
                         tab={
                             <span>
                                 <UserOutlined />
-                                Eligible Seniors ({statistics.eligible_unclaimed || 0})
+                                Eligible Seniors ({eligiblePagination.total})
                             </span>
                         }
                         key="eligible"
@@ -835,7 +882,18 @@ const Benefits = () => {
                                         },
                                         { title: 'Year', dataIndex: 'claim_year', key: 'claim_year' },
                                         { title: 'Status', dataIndex: 'status', key: 'status', render: (s) => getStatusTag(s) },
-                                        { title: 'Filed', dataIndex: 'created_at', key: 'created_at' },
+                                        {
+                                            title: 'Filed By', dataIndex: 'filed_by', key: 'filed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Processed By', dataIndex: 'processed_by', key: 'processed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Released By', dataIndex: 'released_by', key: 'released_by',
+                                            render: (text) => text || '—',
+                                        },
                                     ]}
                                     dataSource={seniorHistory.claims}
                                     rowKey="id"

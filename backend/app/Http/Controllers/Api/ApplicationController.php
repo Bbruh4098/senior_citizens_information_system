@@ -20,7 +20,7 @@ class ApplicationController extends Controller
         $user = $request->user();
         $perPage = $request->get('per_page', 15);
         
-        $query = Application::with(['senior', 'senior.barangay', 'applicationType', 'submitter'])
+        $query = Application::with(['senior', 'senior.barangay', 'applicationType', 'submitter', 'approver'])
             ->when(!$user->isMainAdmin(), function ($q) use ($user) {
                 // Non-main admins can only see applications from their accessible barangays
                 $accessibleBarangayIds = $user->getAccessibleBarangayIds();
@@ -50,8 +50,8 @@ class ApplicationController extends Controller
             $query->where('status', $status);
         }
 
-        // Type filter
-        if ($typeId = $request->get('type_id')) {
+        // Type filter (accept both type_id and application_type parameter names)
+        if ($typeId = $request->get('type_id') ?? $request->get('application_type')) {
             $query->where('application_type_id', $typeId);
         }
 
@@ -127,9 +127,84 @@ class ApplicationController extends Controller
             'documents', // Include uploaded documents
         ])->findOrFail($id);
 
+        $data = $application->toArray();
+
+        // Add barangay_name and civil_status_name for pending apps without senior
+        if (!$application->senior && $application->applicant_data) {
+            $personal = $application->applicant_data['personal_info'] ?? [];
+            if (isset($personal['barangay_id'])) {
+                $barangay = \App\Models\Barangay::find($personal['barangay_id']);
+                // Add barangay_name to the applicant_data.personal_info
+                $data['applicant_data']['personal_info']['barangay_name'] = $barangay ? $barangay->name : null;
+            }
+        } elseif ($application->senior && $application->senior->barangay) {
+            // For apps with senior, include barangay name in applicant_data too
+            if (!isset($data['applicant_data']['personal_info'])) {
+                $data['applicant_data']['personal_info'] = [];
+            }
+            $data['applicant_data']['personal_info']['barangay_name'] = $application->senior->barangay->name;
+        }
+
+        // Always resolve civil_status_name from personal_info for any app type
+        if ($application->applicant_data) {
+            $personal = $application->applicant_data['personal_info'] ?? [];
+            if (isset($personal['civil_status_id']) && !isset($data['applicant_data']['personal_info']['civil_status_name'])) {
+                $civilStatus = \App\Models\CivilStatus::find($personal['civil_status_id']);
+                if (!isset($data['applicant_data']['personal_info'])) {
+                    $data['applicant_data']['personal_info'] = $personal;
+                }
+                $data['applicant_data']['personal_info']['civil_status_name'] = $civilStatus ? $civilStatus->name : null;
+            }
+        }
+
+        // Always resolve educational_attainment_name from background_info
+        if ($application->applicant_data) {
+            $background = $application->applicant_data['background_info'] ?? [];
+            if (isset($background['educational_attainment_id']) && !isset($data['applicant_data']['background_info']['educational_attainment_name'])) {
+                $ea = \App\Models\EducationalAttainment::find($background['educational_attainment_id']);
+                if (!isset($data['applicant_data']['background_info'])) {
+                    $data['applicant_data']['background_info'] = $background;
+                }
+                $data['applicant_data']['background_info']['educational_attainment_name'] = $ea ? $ea->level : null;
+            }
+        }
+
+        // Auto-match family members to registered seniors (admin-side enrichment)
+        if ($application->applicant_data && !empty($data['applicant_data']['family_members'])) {
+            $familyMembers = $data['applicant_data']['family_members'];
+            foreach ($familyMembers as $index => $member) {
+                $firstName = strtolower(trim($member['first_name'] ?? ''));
+                $lastName = strtolower(trim($member['last_name'] ?? ''));
+                $birthdate = $member['birthdate'] ?? null;
+
+                if ($firstName && $lastName) {
+                    $query = SeniorCitizen::whereRaw('LOWER(TRIM(first_name)) = ?', [$firstName])
+                        ->whereRaw('LOWER(TRIM(last_name)) = ?', [$lastName])
+                        ->where('is_active', true);
+
+                    if ($birthdate) {
+                        $query->whereDate('birthdate', $birthdate);
+                    }
+
+                    $match = $query->with('barangay')->first();
+
+                    if ($match) {
+                        $familyMembers[$index]['matched_senior'] = [
+                            'id' => $match->id,
+                            'osca_id' => $match->osca_id,
+                            'full_name' => $match->full_name,
+                            'barangay' => $match->barangay?->name,
+                            'birthdate' => $match->birthdate?->format('Y-m-d'),
+                        ];
+                    }
+                }
+            }
+            $data['applicant_data']['family_members'] = $familyMembers;
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $application,
+            'data' => $data,
         ]);
     }
 
@@ -173,12 +248,18 @@ class ApplicationController extends Controller
                 case 'For Verification':
                     $updateData['submission_date'] = now();
                     break;
+
+                case 'Verified':
+                    $updateData['verified_by'] = $user->id;
+                    $updateData['verification_date'] = now();
+                    break;
                     
                 case 'Approved':
                     // ==============================================
                     // STRICT DUPLICATE CHECK BEFORE APPROVAL
+                    // Only for NEW registrations (where senior_id is null)
                     // ==============================================
-                    if ($application->applicant_data) {
+                    if (!$application->senior_id && $application->applicant_data) {
                         $personalInfo = $application->applicant_data['personal_info'] ?? [];
                         $firstName = strtolower(trim($personalInfo['first_name'] ?? ''));
                         $lastName = strtolower(trim($personalInfo['last_name'] ?? ''));
@@ -205,16 +286,13 @@ class ApplicationController extends Controller
                     }
                     // ==============================================
                     
-                    // Create senior_citizen from applicant_data
+                    // NEW REGISTRATION: Create senior_citizen from applicant_data
                     if (!$application->senior_id && $application->applicant_data) {
                         $seniorId = $this->createSeniorFromApplication($application, $user);
                         $updateData['senior_id'] = $seniorId;
-                    } else if ($application->senior) {
-                        // If senior already exists, just activate them
-                        $application->senior->update([
-                            'registration_status_id' => 2, // Approved
-                            'is_active' => true,
-                        ]);
+                    } else if ($application->senior_id && $application->senior) {
+                        // RENEWAL: Update existing senior with any changed info from applicant_data
+                        $this->updateSeniorFromRenewal($application, $user);
                     }
                     $updateData['approved_by'] = $user->id;
                     $updateData['approval_date'] = now();
@@ -270,6 +348,7 @@ class ApplicationController extends Controller
         $contactRecord = Contact::create([
             'mobile_number' => $contact['mobile_number'] ?? null,
             'telephone_number' => $contact['telephone_number'] ?? null,
+            'email' => $contact['email'] ?? null,
             'house_number' => $contact['house_number'] ?? null,
             'street' => $contact['street'] ?? null,
             'barangay_id' => $personal['barangay_id'] ?? null,
@@ -293,6 +372,7 @@ class ApplicationController extends Controller
             'extension' => $personal['extension'] ?? null,
             'birthdate' => $personal['birthdate'] ?? null,
             'gender_id' => $personal['gender_id'] ?? 1,
+            'civil_status_id' => $personal['civil_status_id'] ?? null,
             'barangay_id' => $personal['barangay_id'] ?? null,
             'branch_id' => $branchId,
             'contact_id' => $contactRecord->id,
@@ -300,6 +380,8 @@ class ApplicationController extends Controller
             'monthly_salary' => $background['monthly_salary'] ?? 0,
             'occupation' => $background['occupation'] ?? null,
             'other_skills' => $background['other_skills'] ?? null,
+            'target_sectors' => $data['target_sectors'] ?? [],
+            'sub_categories' => $data['sub_categories'] ?? [],
             'registration_date' => now(),
             'registration_status_id' => 2, // Approved
             'registered_by' => $user->id,
@@ -311,15 +393,27 @@ class ApplicationController extends Controller
         if (!empty($familyMembers)) {
             foreach ($familyMembers as $member) {
                 if (!empty($member['first_name'])) {
+                    $birthdate = $member['birthdate'] ?? null;
+                    $age = $member['age'] ?? null;
+                    
+                    // Auto-compute age from birthdate if available
+                    if ($birthdate) {
+                        $age = \Carbon\Carbon::parse($birthdate)->age;
+                    }
+
                     DB::table('family_members')->insert([
                         'senior_id' => $senior->id,
                         'first_name' => $member['first_name'] ?? '',
                         'middle_name' => $member['middle_name'] ?? null,
                         'last_name' => $member['last_name'] ?? '',
                         'extension' => $member['extension'] ?? null,
+                        'birthdate' => $birthdate,
                         'relationship' => $member['relationship'] ?? null,
-                        'age' => $member['age'] ?? null,
+                        'age' => $age,
                         'monthly_salary' => $member['monthly_salary'] ?? null,
+                        'mobile_number' => $member['mobile_number'] ?? null,
+                        'telephone_number' => $member['telephone_number'] ?? null,
+                        'email' => $member['email'] ?? null,
                         'created_at' => now(),
                     ]);
                 }
@@ -327,6 +421,53 @@ class ApplicationController extends Controller
         }
 
         return $senior->id;
+    }
+
+    /**
+     * Update existing senior citizen from renewal application's applicant_data.
+     * This applies any updated info (address, phone, etc.) while preserving the OSCA ID.
+     */
+    private function updateSeniorFromRenewal(Application $application, $user): void
+    {
+        $senior = $application->senior;
+        if (!$senior) {
+            return;
+        }
+
+        $data = $application->applicant_data;
+        $personal = $data['personal_info'] ?? [];
+        $contact = $data['contact_info'] ?? [];
+        $background = $data['background_info'] ?? [];
+
+        // Update senior's personal info (preserving osca_id)
+        $senior->update([
+            'first_name' => $personal['first_name'] ?? $senior->first_name,
+            'middle_name' => $personal['middle_name'] ?? $senior->middle_name,
+            'last_name' => $personal['last_name'] ?? $senior->last_name,
+            'extension' => $personal['extension'] ?? $senior->extension,
+            'birthdate' => $personal['birthdate'] ?? $senior->birthdate,
+            'gender_id' => $personal['gender_id'] ?? $senior->gender_id,
+            'civil_status_id' => $personal['civil_status_id'] ?? $senior->civil_status_id,
+            'barangay_id' => $personal['barangay_id'] ?? $senior->barangay_id,
+            'educational_attainment_id' => $background['educational_attainment_id'] ?? $senior->educational_attainment_id,
+            'monthly_salary' => $background['monthly_salary'] ?? $senior->monthly_salary,
+            'occupation' => $background['occupation'] ?? $senior->occupation,
+            'other_skills' => $background['other_skills'] ?? $senior->other_skills,
+            'registration_status_id' => 2, // Approved
+            'is_active' => true,
+        ]);
+
+        // Update contact info if exists
+        if ($senior->contact) {
+            $senior->contact->update([
+                'mobile_number' => $contact['mobile_number'] ?? $senior->contact->mobile_number,
+                'telephone_number' => $contact['telephone_number'] ?? $senior->contact->telephone_number,
+                'email' => $contact['email'] ?? $senior->contact->email,
+                'house_number' => $contact['house_number'] ?? $senior->contact->house_number,
+                'street' => $contact['street'] ?? $senior->contact->street,
+                'barangay_id' => $personal['barangay_id'] ?? $senior->contact->barangay_id,
+            ]);
+        }
     }
 
     /**

@@ -30,6 +30,8 @@ import {
     CloseCircleOutlined,
     ManOutlined,
     WomanOutlined,
+    TeamOutlined,
+    TagOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { seniorsApi, benefitsApi } from '../services/api';
@@ -155,38 +157,63 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
         </Card>
     );
 
-    const renderPersonalDetails = () => (
-        <Card size="small" title="Personal Information">
-            <Descriptions column={2} size="small" bordered>
-                <Descriptions.Item label={<><CalendarOutlined /> Birthdate</>}>
-                    {senior?.birthdate ? dayjs(senior.birthdate).format('MMMM D, YYYY') : '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="Age">
-                    {getAge(senior?.birthdate)} years old
-                </Descriptions.Item>
-                <Descriptions.Item label="Gender">
-                    <Space>
-                        {getGenderIcon(senior?.gender_id)}
-                        {senior?.gender?.name || (senior?.gender_id === 1 ? 'Male' : 'Female')}
-                    </Space>
-                </Descriptions.Item>
-                <Descriptions.Item label="Civil Status">
-                    {senior?.civil_status?.name || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label="Educational Attainment" span={2}>
-                    {senior?.educational_attainment?.name || '-'}
-                </Descriptions.Item>
-            </Descriptions>
-        </Card>
-    );
+    const renderPersonalDetails = () => {
+        const appData = getApplicantData();
+        const targetSectors = senior?.target_sectors?.length ? senior.target_sectors : (appData?.target_sectors || []);
+        const subCategories = senior?.sub_categories?.length ? senior.sub_categories : (appData?.sub_categories || []);
+
+        return (
+            <Card size="small" title="Personal Information">
+                <Descriptions column={2} size="small" bordered>
+                    <Descriptions.Item label={<><CalendarOutlined /> Birthdate</>}>
+                        {senior?.birthdate ? dayjs(senior.birthdate).format('MMMM D, YYYY') : '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Age">
+                        {getAge(senior?.birthdate)} years old
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Gender">
+                        <Space>
+                            {getGenderIcon(senior?.gender_id)}
+                            {senior?.gender?.name || (senior?.gender_id === 1 ? 'Male' : 'Female')}
+                        </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Civil Status">
+                        {senior?.civil_status?.name || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Educational Attainment" span={2}>
+                        {senior?.educational_attainment?.level || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Occupation">
+                        {senior?.occupation || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Monthly Salary">
+                        {senior?.monthly_salary ? formatCurrency(senior.monthly_salary) : '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Other Skills" span={2}>
+                        {senior?.other_skills || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Target Sectors" span={2}>
+                        {targetSectors.length > 0 ? (
+                            <Space wrap>{targetSectors.map((s, i) => <Tag key={i} color="blue">{s}</Tag>)}</Space>
+                        ) : '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Sub-Categories" span={2}>
+                        {subCategories.length > 0 ? (
+                            <Space wrap>{subCategories.map((c, i) => <Tag key={i} color="green">{c}</Tag>)}</Space>
+                        ) : '-'}
+                    </Descriptions.Item>
+                </Descriptions>
+            </Card>
+        );
+    };
 
     const renderAddressContact = () => (
         <Card size="small" title="Address & Contact" style={{ marginTop: 16 }}>
             <Descriptions column={2} size="small" bordered>
                 <Descriptions.Item label={<><HomeOutlined /> Address</>} span={2}>
                     {[
-                        senior?.house_number,
-                        senior?.street,
+                        senior?.contact?.house_number,
+                        senior?.contact?.street,
                         senior?.barangay?.name
                     ].filter(Boolean).join(', ') || '-'}
                 </Descriptions.Item>
@@ -197,10 +224,10 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                     {senior?.branch?.name || '-'}
                 </Descriptions.Item>
                 <Descriptions.Item label={<><PhoneOutlined /> Mobile</>}>
-                    {senior?.contact?.mobile || '-'}
+                    {senior?.contact?.mobile_number || '-'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Telephone">
-                    {senior?.contact?.telephone || '-'}
+                    {senior?.contact?.telephone_number || '-'}
                 </Descriptions.Item>
                 <Descriptions.Item label={<><MailOutlined /> Email</>} span={2}>
                     {senior?.contact?.email || '-'}
@@ -208,6 +235,140 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
             </Descriptions>
         </Card>
     );
+
+    // Get applicant_data from the latest application
+    const getApplicantData = () => {
+        if (!senior?.applications?.length) return null;
+        // Find the latest application with applicant_data
+        const app = senior.applications
+            .filter(a => a.applicant_data)
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        return app?.applicant_data || null;
+    };
+
+    const renderFamily = () => {
+        const dbMembers = senior?.family_members || [];
+        const appData = getApplicantData();
+        const appMembers = appData?.family_members || [];
+        const familyMembers = dbMembers.length > 0 ? dbMembers : appMembers;
+
+        return (
+            <Card size="small" title="Family Composition" style={{ marginTop: 16 }}>
+                {familyMembers.length > 0 ? (
+                    <Table
+                        dataSource={familyMembers}
+                        rowKey={(_, index) => index}
+                        size="small"
+                        pagination={false}
+                        scroll={{ x: 900 }}
+                        columns={[
+                            {
+                                title: 'Name',
+                                key: 'name',
+                                fixed: 'left',
+                                width: 180,
+                                render: (_, record) => {
+                                    const parts = [
+                                        record.first_name,
+                                        record.middle_name,
+                                        record.last_name,
+                                        record.extension,
+                                    ].filter(Boolean);
+                                    return parts.join(' ') || '-';
+                                },
+                            },
+                            {
+                                title: 'Relationship',
+                                dataIndex: 'relationship',
+                                key: 'relationship',
+                                width: 110,
+                                render: (val) => val || '-',
+                            },
+                            {
+                                title: 'Date of Birth',
+                                dataIndex: 'birthdate',
+                                key: 'birthdate',
+                                width: 120,
+                                render: (val) => val ? dayjs(val).format('MMM D, YYYY') : '-',
+                            },
+                            {
+                                title: 'Age',
+                                key: 'age',
+                                width: 60,
+                                render: (_, record) => {
+                                    if (record.birthdate) return dayjs().diff(dayjs(record.birthdate), 'year');
+                                    return record.age || record.computed_age || '-';
+                                },
+                            },
+                            {
+                                title: 'Monthly Salary',
+                                dataIndex: 'monthly_salary',
+                                key: 'monthly_salary',
+                                width: 120,
+                                render: (val) => val ? `₱${Number(val).toLocaleString()}` : '-',
+                            },
+                            {
+                                title: 'Mobile',
+                                dataIndex: 'mobile_number',
+                                key: 'mobile_number',
+                                width: 130,
+                                render: (val) => val || '-',
+                            },
+                            {
+                                title: 'Telephone',
+                                dataIndex: 'telephone_number',
+                                key: 'telephone_number',
+                                width: 130,
+                                render: (val) => val || '-',
+                            },
+                            {
+                                title: 'Email',
+                                dataIndex: 'email',
+                                key: 'email',
+                                width: 180,
+                                render: (val) => val || '-',
+                            },
+                        ]}
+                    />
+                ) : (
+                    <Empty description="No family members recorded" />
+                )}
+            </Card>
+        );
+    };
+
+    const renderAssociation = () => {
+        const appData = getApplicantData();
+        const targetSectors = senior?.target_sectors?.length ? senior.target_sectors : (appData?.target_sectors || []);
+        const subCategories = senior?.sub_categories?.length ? senior.sub_categories : (appData?.sub_categories || []);
+
+        return (
+            <div>
+                <Card size="small" title="Target Sectors" style={{ marginTop: 16 }}>
+                    {targetSectors.length > 0 ? (
+                        <Space wrap>
+                            {targetSectors.map((sector, i) => (
+                                <Tag key={i} color="blue">{sector}</Tag>
+                            ))}
+                        </Space>
+                    ) : (
+                        <Empty description="No target sectors recorded" />
+                    )}
+                </Card>
+                <Card size="small" title="Sub-Categories" style={{ marginTop: 16 }}>
+                    {subCategories.length > 0 ? (
+                        <Space wrap>
+                            {subCategories.map((cat, i) => (
+                                <Tag key={i} color="green">{cat}</Tag>
+                            ))}
+                        </Space>
+                    ) : (
+                        <Empty description="No sub-categories recorded" />
+                    )}
+                </Card>
+            </div>
+        );
+    };
 
     const renderBenefits = () => (
         <div>
@@ -225,7 +386,7 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                                 title: 'Benefit',
                                 dataIndex: ['benefit_type', 'name'],
                                 key: 'benefit',
-                                render: (_, record) => record.benefit_type?.name || '-',
+                                render: (_, record) => record.benefit_name || record.benefit_type?.name || record.benefit?.name || record.benefitType?.name || '-',
                             },
                             {
                                 title: 'Amount',
@@ -248,10 +409,28 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                                 },
                             },
                             {
-                                title: 'Date',
+                                title: 'Date Filed',
                                 dataIndex: 'created_at',
-                                key: 'created_at',
+                                key: 'date_filed',
                                 render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '-',
+                            },
+                            {
+                                title: 'Filed By',
+                                dataIndex: 'filed_by',
+                                key: 'filed_by',
+                                render: (text) => text || '—',
+                            },
+                            {
+                                title: 'Processed By',
+                                dataIndex: 'processed_by',
+                                key: 'processed_by',
+                                render: (text) => text || '—',
+                            },
+                            {
+                                title: 'Released By',
+                                dataIndex: 'released_by',
+                                key: 'released_by',
+                                render: (text) => text || '—',
                             },
                         ]}
                     />
@@ -278,9 +457,9 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                         },
                         {
                             title: 'Type',
-                            dataIndex: ['type', 'name'],
+                            dataIndex: ['application_type', 'name'],
                             key: 'type',
-                            render: (_, record) => record.type?.name || '-',
+                            render: (_, record) => record.application_type?.name || record.applicationType?.name || '-',
                         },
                         {
                             title: 'Status',
@@ -293,6 +472,26 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                             dataIndex: 'created_at',
                             key: 'date',
                             render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '-',
+                        },
+                        {
+                            title: 'Submitted By',
+                            key: 'submitted_by',
+                            render: (_, record) => {
+                                if (record.submitter) {
+                                    return `${record.submitter.first_name} ${record.submitter.last_name}`;
+                                }
+                                return '—';
+                            },
+                        },
+                        {
+                            title: 'Approved By',
+                            key: 'approved_by',
+                            render: (_, record) => {
+                                if (record.approver) {
+                                    return `${record.approver.first_name} ${record.approver.last_name}`;
+                                }
+                                return '—';
+                            },
                         },
                     ]}
                 />
@@ -361,6 +560,22 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                             >
                                 {renderPersonalDetails()}
                                 {renderAddressContact()}
+                            </TabPane>
+                            <TabPane
+                                tab={
+                                    <span><TeamOutlined /> Family</span>
+                                }
+                                key="family"
+                            >
+                                {renderFamily()}
+                            </TabPane>
+                            <TabPane
+                                tab={
+                                    <span><TagOutlined /> Association</span>
+                                }
+                                key="association"
+                            >
+                                {renderAssociation()}
                             </TabPane>
                             <TabPane
                                 tab={

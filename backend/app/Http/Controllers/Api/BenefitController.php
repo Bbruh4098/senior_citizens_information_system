@@ -6,15 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\BenefitClaim;
 use App\Models\BenefitType;
 use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class BenefitController extends Controller
 {
-    /**
-     * Get all benefit types.
-     */
+    use LogsAudit;
+    // Get all benefit types.
     public function types()
     {
         $types = BenefitType::active()
@@ -40,16 +40,14 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Get paginated list of benefit claims.
-     */
+    // Get paginated list of benefit claims.
     public function index(Request $request)
     {
         $user = $request->user();
         $perPage = $request->get('per_page', 15);
         $currentYear = now()->year;
 
-        $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor'])
+        $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor', 'claimer', 'approver', 'releaser', 'rejecter'])
             ->accessibleBy($user);
 
         // Filter by status
@@ -93,9 +91,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Export benefit claims as CSV.
-     */
+    // Export benefit claims as CSV.
     public function exportClaims(Request $request)
     {
         $user = $request->user();
@@ -104,7 +100,6 @@ class BenefitController extends Controller
         $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor'])
             ->accessibleBy($user);
 
-        // Apply same filters as index
         if ($status = $request->get('status')) {
             $query->status($status);
         }
@@ -129,34 +124,36 @@ class BenefitController extends Controller
 
         $claims = $query->orderBy('created_at', 'desc')->get();
 
-        // Build CSV content
-        $csv = "OSCA ID,Senior Name,Barangay,Benefit Type,Amount,Year,Status,Date Filed,Released At\n";
-        
-        foreach ($claims as $claim) {
-            $senior = $claim->senior;
-            $csv .= implode(',', [
-                $senior?->osca_id ?? '',
-                '"' . ($senior?->full_name ?? $senior?->first_name . ' ' . $senior?->last_name) . '"',
-                '"' . ($senior?->barangay?->name ?? '') . '"',
-                '"' . ($claim->benefitType?->name ?? '') . '"',
-                $claim->amount,
-                $claim->claim_year,
-                $claim->status,
-                $claim->created_at->format('Y-m-d'),
-                $claim->released_at?->format('Y-m-d') ?? '',
-            ]) . "\n";
-        }
+        $headers = [
+            'OSCA ID', 'Senior Name', 'Barangay', 'Benefit Type',
+            'Amount', 'Year', 'Status', 'Date Filed', 'Released At',
+        ];
 
-        $filename = 'benefits_claims_' . ($request->get('year') ?? $currentYear) . '_' . now()->format('Ymd_His') . '.csv';
+        $data = $claims->map(fn($c) => [
+            $c->senior?->osca_id ?? '',
+            $c->senior?->full_name ?? ($c->senior?->first_name . ' ' . $c->senior?->last_name),
+            $c->senior?->barangay?->name ?? '',
+            $c->benefitType?->name ?? '',
+            number_format($c->amount, 2),
+            $c->claim_year,
+            ucfirst($c->status),
+            $c->created_at->format('m/d/Y'),
+            $c->released_at?->format('m/d/Y') ?? '',
+        ])->toArray();
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
+        $year = $request->get('year') ?? $currentYear;
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            "Benefit Claims Report - Year {$year}",
+            $headers,
+            $data,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
+
+        return $excelService->download('benefit_claims_' . $year . '_' . now()->format('Ymd_His') . '.xlsx');
     }
 
-    /**
-     * Get seniors eligible for benefits they haven't claimed yet.
-     */
+    // Get seniors eligible for benefits they haven't claimed yet.
     public function eligible(Request $request)
     {
         $user = $request->user();
@@ -221,6 +218,16 @@ class BenefitController extends Controller
                 ->get();
 
             foreach ($seniors as $senior) {
+                // Check target scope eligibility (district, branch, barangays)
+                if ($senior->barangay_id && !$benefitType->isEligibleForBarangay($senior->barangay_id)) {
+                    continue;
+                }
+
+                // Check association eligibility (target sectors / sub-categories)
+                if (!$benefitType->isEligibleForAssociation($senior)) {
+                    continue;
+                }
+
                 $eligibleSeniors[] = [
                     'senior_id' => $senior->id,
                     'osca_id' => $senior->osca_id,
@@ -253,15 +260,12 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Export eligible seniors as CSV.
-     */
+    // Export eligible seniors as CSV.
     public function exportEligible(Request $request)
     {
         $user = $request->user();
         $currentYear = now()->year;
 
-        // Get benefit types (optionally filtered)
         $benefitTypesQuery = BenefitType::active()->where('amount', '>', 0)->orderBy('min_age');
         
         $filterTypeId = $request->get('benefit_type_id');
@@ -272,7 +276,6 @@ class BenefitController extends Controller
         $benefitTypes = $benefitTypesQuery->get();
         $search = $request->get('search');
 
-        // Build data for export
         $eligibleSeniors = [];
 
         foreach ($benefitTypes as $benefitType) {
@@ -311,41 +314,41 @@ class BenefitController extends Controller
                 ->get();
 
             foreach ($seniors as $senior) {
+                if ($senior->barangay_id && !$benefitType->isEligibleForBarangay($senior->barangay_id)) {
+                    continue;
+                }
+
+                if (!$benefitType->isEligibleForAssociation($senior)) {
+                    continue;
+                }
+
                 $eligibleSeniors[] = [
-                    'osca_id' => $senior->osca_id,
-                    'full_name' => $senior->full_name ?? "{$senior->first_name} {$senior->last_name}",
-                    'age' => $senior->age,
-                    'barangay' => $senior->barangay?->name,
-                    'benefit_name' => $benefitType->name,
-                    'benefit_amount' => $benefitType->amount,
+                    $senior->osca_id,
+                    $senior->full_name ?? "{$senior->first_name} {$senior->last_name}",
+                    $senior->age,
+                    $senior->barangay?->name ?? '',
+                    $benefitType->name,
+                    number_format($benefitType->amount, 2),
                 ];
             }
         }
 
-        // Build CSV
-        $csv = "OSCA ID,Senior Name,Age,Barangay,Eligible Benefit,Amount\n";
-        
-        foreach ($eligibleSeniors as $row) {
-            $csv .= implode(',', [
-                $row['osca_id'] ?? '',
-                '"' . $row['full_name'] . '"',
-                $row['age'],
-                '"' . ($row['barangay'] ?? '') . '"',
-                '"' . $row['benefit_name'] . '"',
-                $row['benefit_amount'],
-            ]) . "\n";
-        }
+        $headers = [
+            'OSCA ID', 'Senior Name', 'Age', 'Barangay', 'Eligible Benefit', 'Amount',
+        ];
 
-        $filename = 'eligible_seniors_' . now()->format('Ymd_His') . '.csv';
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            'Eligible Seniors Report',
+            $headers,
+            $eligibleSeniors,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
 
-        return response($csv)
-            ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', "attachment; filename=\"{$filename}\"");
+        return $excelService->download('eligible_seniors_' . now()->format('Ymd_His') . '.xlsx');
     }
 
-    /**
-     * Get dashboard statistics for benefits.
-     */
+    // Get dashboard statistics for benefits.
     public function statistics(Request $request)
     {
         $user = $request->user();
@@ -395,9 +398,7 @@ class BenefitController extends Controller
         ]);
     }
 
-    /**
-     * Create a new benefit claim.
-     */
+    // Create a new benefit claim.
     public function store(Request $request)
     {
         $request->validate([
@@ -456,10 +457,20 @@ class BenefitController extends Controller
             'claim_year' => $currentYear,
             'amount' => $benefitType->amount,
             'status' => 'pending',
+            'claimed_by' => $user->id,
             'notes' => $request->notes,
         ]);
 
         $claim->load(['senior', 'benefitType']);
+
+        $seniorName = "{$senior->first_name} {$senior->last_name}";
+        $this->logAudit(
+            'benefit_claim', 'benefit_claims', $claim->id,
+            "Benefit claimed: {$benefitType->name} for {$seniorName} (₱" . number_format($claim->amount, 2) . ")",
+            null,
+            ['benefit_type' => $benefitType->name, 'amount' => $claim->amount, 'senior_id' => $senior->id, 'claim_year' => $currentYear],
+            $seniorName
+        );
 
         return response()->json([
             'success' => true,
@@ -492,8 +503,17 @@ class BenefitController extends Controller
         $claim->status = $request->status;
         $claim->processed_by = $user->id;
 
-        if ($request->status === 'released') {
-            $claim->released_at = now();
+        switch ($request->status) {
+            case 'approved':
+                $claim->approved_by = $user->id;
+                break;
+            case 'released':
+                $claim->released_by = $user->id;
+                $claim->released_at = now();
+                break;
+            case 'rejected':
+                $claim->rejected_by = $user->id;
+                break;
         }
 
         if ($request->notes) {
@@ -501,11 +521,22 @@ class BenefitController extends Controller
         }
 
         $claim->save();
-        $claim->load(['senior', 'benefitType', 'processor']);
+        $claim->load(['senior', 'benefitType', 'processor', 'claimer', 'approver', 'releaser', 'rejecter']);
+
+        $seniorName = "{$claim->senior->first_name} {$claim->senior->last_name}";
+        $statusLabel = ucfirst($request->status);
+        $actionKey = 'claim_' . $request->status;
+        $this->logAudit(
+            $actionKey, 'benefit_claims', $claim->id,
+            "Claim {$statusLabel}: {$claim->benefitType->name} for {$seniorName}",
+            ['status' => 'pending'],
+            ['status' => $request->status],
+            $seniorName
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'Claim status updated to ' . ucfirst($request->status),
+            'message' => 'Claim status updated to ' . $statusLabel,
             'data' => $claim,
         ]);
     }
@@ -515,7 +546,7 @@ class BenefitController extends Controller
      */
     public function seniorClaims($seniorId)
     {
-        $senior = SeniorCitizen::with(['benefitClaims.benefitType', 'benefitClaims.processor', 'barangay'])
+        $senior = SeniorCitizen::with(['benefitClaims.benefitType', 'benefitClaims.processor', 'benefitClaims.claimer', 'benefitClaims.approver', 'benefitClaims.rejecter', 'benefitClaims.releaser', 'barangay'])
             ->find($seniorId);
 
         if (!$senior) {
@@ -537,6 +568,16 @@ class BenefitController extends Controller
         $eligibility = [];
         foreach ($benefitTypes as $type) {
             $isEligible = $type->isEligibleForAge($age);
+        
+        // check barangay/district scope eligibility
+        if ($isEligible && $senior->barangay_id) {
+            $isEligible = $type->isEligibleForBarangay($senior->barangay_id);
+        }
+
+        // Check association eligibility (target sectors / sub-categories)
+        if ($isEligible) {
+            $isEligible = $type->isEligibleForAssociation($senior);
+        }
             
             // Check if already claimed
             $existingClaim = $senior->benefitClaims
@@ -567,7 +608,9 @@ class BenefitController extends Controller
                 'claim_year' => $claim->claim_year,
                 'status' => $claim->status,
                 'released_at' => $claim->released_at?->format('Y-m-d'),
-                'processed_by' => $claim->processor?->name,
+                'filed_by' => $claim->claimer ? $claim->claimer->first_name . ' ' . $claim->claimer->last_name : null,
+                'processed_by' => $claim->approver ? $claim->approver->first_name . ' ' . $claim->approver->last_name : ($claim->rejecter ? $claim->rejecter->first_name . ' ' . $claim->rejecter->last_name : ($claim->processor ? $claim->processor->first_name . ' ' . $claim->processor->last_name : null)),
+                'released_by' => $claim->releaser ? $claim->releaser->first_name . ' ' . $claim->releaser->last_name : null,
                 'notes' => $claim->notes,
                 'created_at' => $claim->created_at->format('Y-m-d'),
             ];
@@ -613,7 +656,7 @@ class BenefitController extends Controller
             
             // Only load new relationships if columns exist
             if ($hasNewColumns) {
-                $query->with(['barangays', 'branch', 'creator']);
+                $query->with(['barangays', 'branch', 'district', 'creator']);
             }
             
             $query->orderBy('min_age');
@@ -647,6 +690,8 @@ class BenefitController extends Controller
                         $data['target_scope'] = $type->target_scope ?? 'all';
                         $data['branch_id'] = $type->branch_id ?? null;
                         $data['branch'] = $type->branch ?? null;
+                        $data['district_id'] = $type->district_id ?? null;
+                        $data['district'] = $type->district ?? null;
                         $data['barangay_ids'] = $type->barangays ? $type->barangays->pluck('id') : [];
                         $data['barangays'] = $type->barangays ?? [];
                         $data['created_by'] = $type->created_by ?? null;
@@ -709,10 +754,16 @@ class BenefitController extends Controller
             'amount' => 'required|numeric|min:0',
             'is_one_time' => 'boolean',
             'claim_interval_days' => 'nullable|integer|min:1',
-            'target_scope' => 'sometimes|in:all,branch,barangays',
+            'target_scope' => 'sometimes|in:all,branch,barangays,district',
             'branch_id' => 'nullable|exists:branches,id',
+            'district_id' => 'nullable|exists:districts,id',
             'barangay_ids' => 'nullable|array',
             'barangay_ids.*' => 'exists:barangays,id',
+            'required_sectors' => 'nullable|array',
+            'required_sectors.*' => 'string',
+            'required_sub_categories' => 'nullable|array',
+            'required_sub_categories.*' => 'string',
+            'association_mode' => 'sometimes|in:any,all',
         ]);
 
         // Validate max_age >= min_age if provided
@@ -758,12 +809,12 @@ class BenefitController extends Controller
 
         $type = BenefitType::create($validated);
         
-        // Sync barangays if targeting specific barangays
-        if ($validated['target_scope'] === 'barangays' && !empty($barangayIds)) {
+        // Sync barangays if targeting specific barangays (for barangays, district, or branch scope)
+        if (in_array($validated['target_scope'], ['barangays', 'district', 'branch'])) {
             $type->barangays()->sync($barangayIds);
         }
 
-        $type->load('barangays', 'branch');
+        $type->load('barangays', 'branch', 'district');
 
         return response()->json([
             'success' => true,
@@ -803,10 +854,16 @@ class BenefitController extends Controller
             'amount' => 'sometimes|numeric|min:0',
             'is_one_time' => 'boolean',
             'claim_interval_days' => 'nullable|integer|min:1',
-            'target_scope' => 'sometimes|in:all,branch,barangays',
+            'target_scope' => 'sometimes|in:all,branch,barangays,district',
             'branch_id' => 'nullable|exists:branches,id',
+            'district_id' => 'nullable|exists:districts,id',
             'barangay_ids' => 'nullable|array',
             'barangay_ids.*' => 'exists:barangays,id',
+            'required_sectors' => 'nullable|array',
+            'required_sectors.*' => 'string',
+            'required_sub_categories' => 'nullable|array',
+            'required_sub_categories.*' => 'string',
+            'association_mode' => 'sometimes|in:any,all',
         ]);
 
         // Validate max_age >= min_age if both are set
@@ -837,12 +894,12 @@ class BenefitController extends Controller
 
         $type->update($validated);
         
-        // Sync barangays if provided
+        // Sync barangays if provided (for barangays, district, or branch scope)
         if ($barangayIds !== null) {
             $type->barangays()->sync($barangayIds);
         }
 
-        $type->load('barangays', 'branch');
+        $type->load('barangays', 'branch', 'district');
 
         return response()->json([
             'success' => true,

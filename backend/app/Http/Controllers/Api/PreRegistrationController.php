@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\PreRegistration;
 use App\Models\Application;
+use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class PreRegistrationController extends Controller
 {
+    use LogsAudit;
     /**
      * List pre-registrations with filters
      */
@@ -130,6 +133,16 @@ class PreRegistrationController extends Controller
             $message = 'Application rejected';
         }
 
+        $applicantData = $preReg->applicant_data;
+        $applicantName = ($applicantData['first_name'] ?? '') . ' ' . ($applicantData['last_name'] ?? '');
+        $actionKey = in_array($request->action, ['verify', 'transmit']) ? 'prereg_fo_verified' : 'prereg_fo_rejected';
+        $this->logAudit(
+            $actionKey, 'pre_registrations', $preReg->id,
+            ($actionKey === 'prereg_fo_verified' ? 'FO verified' : 'FO rejected') . ": {$applicantName} ({$preReg->reference_number})",
+            null, ['status' => $preReg->status],
+            trim($applicantName)
+        );
+
         return response()->json([
             'message' => $message,
             'data' => $preReg->fresh(['barangay', 'foReviewer']),
@@ -172,6 +185,16 @@ class PreRegistrationController extends Controller
             ]);
             $message = 'Application rejected';
         }
+
+        $applicantData = $preReg->applicant_data;
+        $applicantName = ($applicantData['first_name'] ?? '') . ' ' . ($applicantData['last_name'] ?? '');
+        $actionKey = $request->action === 'approve' ? 'prereg_approved' : 'prereg_rejected';
+        $this->logAudit(
+            $actionKey, 'pre_registrations', $preReg->id,
+            ($request->action === 'approve' ? 'Application approved' : 'Application rejected') . ": {$applicantName} ({$preReg->reference_number})",
+            null, ['status' => $preReg->status],
+            trim($applicantName)
+        );
 
         return response()->json([
             'message' => $message,
@@ -235,9 +258,45 @@ class PreRegistrationController extends Controller
             ],
             
             // Additional online data for reference
-            'civil_status' => $onlineData['civil_status'] ?? '',
+            'civil_status_id' => $onlineData['civil_status_id'] ?? null,
             'email' => $onlineData['email'] ?? '',
+            
+            // Family & Associations from online form
+            'family_members' => $onlineData['family_members'] ?? [],
+            'target_sectors' => $onlineData['target_sectors'] ?? [],
+            'sub_categories' => $onlineData['sub_categories'] ?? [],
         ];
+
+        // Auto-match family members to registered seniors
+        if (!empty($registrationData['family_members'])) {
+            foreach ($registrationData['family_members'] as $index => $member) {
+                $firstName = strtolower(trim($member['first_name'] ?? ''));
+                $lastName = strtolower(trim($member['last_name'] ?? ''));
+                $birthdate = $member['birthdate'] ?? null;
+
+                if ($firstName && $lastName) {
+                    $query = SeniorCitizen::whereRaw('LOWER(TRIM(first_name)) = ?', [$firstName])
+                        ->whereRaw('LOWER(TRIM(last_name)) = ?', [$lastName])
+                        ->where('is_active', true);
+
+                    if ($birthdate) {
+                        $query->whereDate('birthdate', $birthdate);
+                    }
+
+                    $match = $query->with('barangay')->first();
+
+                    if ($match) {
+                        $registrationData['family_members'][$index]['matched_senior'] = [
+                            'id' => $match->id,
+                            'osca_id' => $match->osca_id,
+                            'full_name' => $match->full_name,
+                            'barangay' => $match->barangay?->name,
+                            'birthdate' => $match->birthdate?->format('Y-m-d'),
+                        ];
+                    }
+                }
+            }
+        }
 
         // Mark as being converted (optional status update)
         $preReg->update([

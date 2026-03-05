@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SeniorCitizen;
+use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SeniorController extends Controller
 {
+    use LogsAudit;
     /**
      * Get paginated list of seniors.
      */
@@ -17,7 +19,7 @@ class SeniorController extends Controller
         $user = $request->user();
         $perPage = $request->get('per_page', 15);
         
-        $query = SeniorCitizen::with(['barangay', 'branch', 'gender', 'registrationStatus'])
+        $query = SeniorCitizen::with(['barangay', 'branch', 'gender', 'civilStatus', 'registrationStatus'])
             ->accessibleBy($user);
 
         // Search filter
@@ -46,7 +48,7 @@ class SeniorController extends Controller
             }
         }
 
-        // Age categories filter (octogenarians, nonagenarians, centenarians)
+        // Age categories filter
         if ($ageCategories = $request->get('age_categories')) {
             $categories = is_array($ageCategories) ? $ageCategories : explode(',', $ageCategories);
             
@@ -54,6 +56,12 @@ class SeniorController extends Controller
                 foreach ($categories as $category) {
                     $category = trim($category);
                     switch ($category) {
+                        case 'sexagenarians':
+                            $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69');
+                            break;
+                        case 'septuagenarians':
+                            $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79');
+                            break;
                         case 'octogenarians':
                             $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89');
                             break;
@@ -103,6 +111,7 @@ class SeniorController extends Controller
                 'barangay',
                 'branch',
                 'gender',
+                'civilStatus',
                 'contact',
                 'educationalAttainment',
                 'socioeconomicStatus',
@@ -110,7 +119,10 @@ class SeniorController extends Controller
                 'registrationStatus',
                 'registeredBy',
                 'applications.applicationType',
+                'applications.submitter',
+                'applications.approver',
                 'seniorIds',
+                'familyMembers',
             ])
                 ->accessibleBy($user)
                 ->findOrFail($id);
@@ -173,56 +185,95 @@ class SeniorController extends Controller
     }
 
     /**
-     * Export seniors to CSV.
+     * Export seniors to Excel with letterhead.
      */
     public function export(Request $request)
     {
         $user = $request->user();
         
-        $seniors = SeniorCitizen::with(['barangay', 'gender'])
-            ->accessibleBy($user)
-            ->active()
-            ->get();
+        $query = SeniorCitizen::with(['barangay', 'gender'])
+            ->accessibleBy($user);
+
+        // Apply same filters as index
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('osca_id', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%");
+            });
+        }
+
+        if ($barangayId = $request->get('barangay_id')) {
+            $query->where('barangay_id', $barangayId);
+        }
+
+        if ($status = $request->get('status')) {
+            if ($status === 'active') {
+                $query->where('is_active', true)->where('is_deceased', false);
+            } elseif ($status === 'inactive') {
+                $query->where('is_active', false);
+            } elseif ($status === 'deceased') {
+                $query->where('is_deceased', true);
+            }
+        }
+
+        if ($ageCategories = $request->get('age_categories')) {
+            $categories = is_array($ageCategories) ? $ageCategories : explode(',', $ageCategories);
+            $query->where(function ($q) use ($categories) {
+                foreach ($categories as $category) {
+                    $category = trim($category);
+                    match ($category) {
+                        'sexagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69'),
+                        'septuagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79'),
+                        'octogenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89'),
+                        'nonagenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99'),
+                        'centenarians' => $q->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100'),
+                        default => null,
+                    };
+                }
+            });
+        }
+
+        // Age range filter
+        if ($minAge = $request->get('min_age')) {
+            $maxDate = now()->subYears($minAge)->format('Y-m-d');
+            $query->where('birthdate', '<=', $maxDate);
+        }
+        if ($maxAge = $request->get('max_age')) {
+            $minDate = now()->subYears($maxAge + 1)->format('Y-m-d');
+            $query->where('birthdate', '>', $minDate);
+        }
+
+        $seniors = $query->get();
 
         $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="seniors_export_' . date('Y-m-d') . '.csv"',
+            'OSCA ID', 'Last Name', 'First Name', 'Middle Name', 'M.I.',
+            'Birthdate', 'Age', 'Gender', 'Barangay', 'Status',
         ];
 
-        $callback = function () use ($seniors) {
-            $file = fopen('php://output', 'w');
-            
-            // Header row
-            fputcsv($file, [
-                'OSCA ID',
-                'Last Name',
-                'First Name',
-                'Middle Name',
-                'Birthdate',
-                'Age',
-                'Gender',
-                'Barangay',
-                'Contact Number',
-            ]);
+        $data = $seniors->map(fn($s) => [
+            $s->osca_id,
+            $s->last_name,
+            $s->first_name,
+            $s->middle_name ?? '',
+            $s->middle_name ? strtoupper(substr($s->middle_name, 0, 1)) . '.' : '',
+            $s->birthdate?->format('m/d/Y'),
+            $s->age,
+            $s->gender->name ?? '',
+            $s->barangay->name ?? '',
+            $s->is_active ? 'Active' : 'Inactive',
+        ])->toArray();
 
-            foreach ($seniors as $senior) {
-                fputcsv($file, [
-                    $senior->osca_id,
-                    $senior->last_name,
-                    $senior->first_name,
-                    $senior->middle_name,
-                    $senior->birthdate?->format('Y-m-d'),
-                    $senior->age,
-                    $senior->gender->name ?? '',
-                    $senior->barangay->name ?? '',
-                    $senior->contact->mobile ?? '',
-                ]);
-            }
+        $excelService = new \App\Services\ExcelExportService();
+        $excelService->create(
+            'List of Registered Senior Citizens',
+            $headers,
+            $data,
+            $user->full_name ?? $user->username ?? 'Admin'
+        );
 
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return $excelService->download('seniors_export_' . date('Y-m-d') . '.xlsx');
     }
 
     /**
@@ -257,8 +308,13 @@ class SeniorController extends Controller
             'notes' => 'nullable|string',
             // Contact fields
             'mobile_number' => 'nullable|string|max:50',
-            'telephone' => 'nullable|string|max:50',
+            'telephone_number' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:100',
+            // Association fields
+            'target_sectors' => 'nullable|array',
+            'target_sectors.*' => 'string',
+            'sub_categories' => 'nullable|array',
+            'sub_categories.*' => 'string',
         ]);
 
         // If changing barangay, verify user has access to new barangay
@@ -282,7 +338,7 @@ class SeniorController extends Controller
 
             foreach ($validated as $field => $value) {
                 // Skip contact fields - handled separately
-                if (in_array($field, ['mobile_number', 'telephone', 'email'])) {
+                if (in_array($field, ['mobile_number', 'telephone_number', 'email'])) {
                     continue;
                 }
                 
@@ -295,21 +351,21 @@ class SeniorController extends Controller
             }
 
             // Update senior record
-            $senior->fill(array_diff_key($validated, array_flip(['mobile_number', 'telephone', 'email'])));
+            $senior->fill(array_diff_key($validated, array_flip(['mobile_number', 'telephone_number', 'email'])));
             $senior->save();
 
             // Update contact info if provided
-            if (isset($validated['mobile_number']) || isset($validated['telephone']) || isset($validated['email'])) {
+            if (isset($validated['mobile_number']) || isset($validated['telephone_number']) || isset($validated['email'])) {
                 $contact = $senior->contact;
                 if (!$contact) {
                     $contact = $senior->contact()->create([
-                        'mobile' => $validated['mobile_number'] ?? null,
-                        'telephone' => $validated['telephone'] ?? null,
+                        'mobile_number' => $validated['mobile_number'] ?? null,
+                        'telephone_number' => $validated['telephone_number'] ?? null,
                         'email' => $validated['email'] ?? null,
                     ]);
                 } else {
-                    if (isset($validated['mobile_number'])) $contact->mobile = $validated['mobile_number'];
-                    if (isset($validated['telephone'])) $contact->telephone = $validated['telephone'];
+                    if (isset($validated['mobile_number'])) $contact->mobile_number = $validated['mobile_number'];
+                    if (isset($validated['telephone_number'])) $contact->telephone_number = $validated['telephone_number'];
                     if (isset($validated['email'])) $contact->email = $validated['email'];
                     $contact->save();
                 }
@@ -317,22 +373,47 @@ class SeniorController extends Controller
 
             // Log audit entry
             if (!empty($changes)) {
-                DB::table('audit_logs')->insert([
-                    'user_id' => $user->id,
-                    'action' => 'senior_update',
-                    'target_type' => 'senior_citizens',
-                    'target_id' => $senior->id,
-                    'old_values' => json_encode($oldValues),
-                    'new_values' => json_encode($newValues),
-                    'ip_address' => $request->ip(),
-                    'created_at' => now(),
-                ]);
+                $seniorName = "{$senior->first_name} {$senior->last_name}";
+
+                // Determine specific action based on what changed
+                if (in_array('is_deceased', $changes) && $senior->is_deceased) {
+                    $action = 'senior_mark_deceased';
+                    $desc = "Marked as deceased: {$seniorName}";
+                } elseif (in_array('is_active', $changes) && !$senior->is_active) {
+                    $action = 'senior_deactivated';
+                    $desc = "Deactivated senior: {$seniorName}";
+                } elseif (in_array('is_active', $changes) && $senior->is_active) {
+                    $action = 'senior_activated';
+                    $desc = "Activated senior: {$seniorName}";
+                } elseif (in_array('barangay_id', $changes)) {
+                    $action = 'senior_transfer';
+                    $desc = "Transferred senior: {$seniorName} — barangay changed";
+                } elseif (array_intersect(['first_name', 'middle_name', 'last_name', 'extension'], $changes)) {
+                    $action = 'senior_name_change';
+                    $desc = "Name updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } elseif (array_intersect(['birthdate', 'gender_id', 'civil_status_id', 'birthplace'], $changes)) {
+                    $action = 'senior_personal_info';
+                    $desc = "Personal info updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } elseif (array_intersect(['house_number', 'street', 'purok'], $changes)) {
+                    $action = 'senior_address_update';
+                    $desc = "Address updated: {$seniorName} — changed: " . implode(', ', $changes);
+                } else {
+                    $action = 'senior_update';
+                    $desc = "Updated senior: {$seniorName} — changed: " . implode(', ', $changes);
+                }
+
+                $this->logAudit(
+                    $action, 'senior_citizens', $senior->id,
+                    $desc,
+                    $oldValues, $newValues,
+                    $seniorName
+                );
             }
 
             DB::commit();
 
             // Reload with relationships
-            $senior->load(['barangay', 'gender', 'contact', 'branch']);
+            $senior->load(['barangay', 'gender', 'civilStatus', 'contact', 'branch']);
 
             return response()->json([
                 'success' => true,

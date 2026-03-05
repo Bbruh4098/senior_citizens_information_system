@@ -8,9 +8,12 @@ use App\Models\PreRegistration;
 use App\Models\SeniorCitizen;
 use App\Models\IdPrintingQueue;
 use App\Models\BenefitClaim;
+use App\Models\EducationalAttainment;
+use App\Models\CivilStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use App\Services\SmsService;
 
 class PublicController extends Controller
 {
@@ -32,11 +35,15 @@ class PublicController extends Controller
         // Total benefits released (only count Released status)
         $totalBenefitsReleased = BenefitClaim::where('status', 'Released')->count();
         
+        // Count distinct barangays with registered seniors
+        $barangaysCovered = SeniorCitizen::distinct('barangay_id')->count('barangay_id');
+        
         return response()->json([
             'data' => [
                 'registered_seniors' => $totalSeniors,
                 'ids_issued_this_year' => $idsIssuedThisYear,
                 'benefits_claimed' => $totalBenefitsReleased,
+                'barangays_covered' => $barangaysCovered,
             ]
         ]);
     }
@@ -115,10 +122,12 @@ class PublicController extends Controller
             'extension' => 'nullable|string|max:10',
             'birthdate' => 'required|date|before:-60 years',
             'gender_id' => 'required|integer|in:1,2',
+            'civil_status_id' => 'required|integer',
             'house_number' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
-            'mobile_number' => 'nullable|string|max:20',
+            'mobile_number' => ['required', 'string', 'max:20', 'regex:/^09\d{9}$/'],
             'telephone_number' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:100',
             'educational_attainment_id' => 'nullable|integer',
             'monthly_salary' => 'nullable|numeric',
             'occupation' => 'nullable|string|max:100',
@@ -171,6 +180,12 @@ class PublicController extends Controller
             ], 409);
         }
 
+        // Resolve lookup names for display
+        $genderName = $request->gender_id == 1 ? 'Male' : ($request->gender_id == 2 ? 'Female' : null);
+        $civilStatusName = $request->civil_status_id ? CivilStatus::find($request->civil_status_id)?->name : null;
+        $barangayName = $request->barangay_id ? Barangay::find($request->barangay_id)?->name : null;
+        $educAttainName = $request->educational_attainment_id ? EducationalAttainment::find($request->educational_attainment_id)?->level : null;
+
         // Create pre-registration with expanded data structure
         $preRegistration = PreRegistration::create([
             'reference_number' => PreRegistration::generateReferenceNumber(),
@@ -183,14 +198,20 @@ class PublicController extends Controller
                 'extension' => $request->extension,
                 'birthdate' => $request->birthdate,
                 'gender_id' => $request->gender_id,
+                'gender_name' => $genderName,
+                'civil_status_id' => $request->civil_status_id,
+                'civil_status_name' => $civilStatusName,
+                'barangay_name' => $barangayName,
                 // Address
                 'house_number' => $request->house_number,
                 'street' => $request->street,
                 // Contact
                 'mobile_number' => $request->mobile_number,
                 'telephone_number' => $request->telephone_number,
+                'email' => $request->email,
                 // Background
                 'educational_attainment_id' => $request->educational_attainment_id,
+                'educational_attainment_name' => $educAttainName,
                 'monthly_salary' => $request->monthly_salary,
                 'occupation' => $request->occupation,
                 'other_skills' => $request->other_skills,
@@ -202,10 +223,22 @@ class PublicController extends Controller
             'status' => PreRegistration::STATUS_PENDING,
         ]);
 
+        // Send reference number via SMS
+        $smsSent = false;
+        if ($request->mobile_number) {
+            $smsService = new SmsService();
+            $smsResult = $smsService->sendReferenceNumber(
+                $request->mobile_number,
+                $preRegistration->reference_number
+            );
+            $smsSent = $smsResult['success'];
+        }
+
         return response()->json([
             'message' => 'Application submitted successfully',
             'reference_number' => $preRegistration->reference_number,
             'status' => $preRegistration->status,
+            'sms_sent' => $smsSent,
             'next_steps' => 'Your application will be reviewed by the Admin. Visit the OSCA office with your documents to complete registration.',
         ], 201);
     }

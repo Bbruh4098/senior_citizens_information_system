@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SeniorAccount;
 use App\Models\SeniorCitizen;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -47,18 +48,33 @@ class SeniorAuthController extends Controller
             $account->update(['phone_number' => $request->phone_number]);
         }
 
+        // Check SMS rate limits
+        $smsService = new SmsService();
+        $rateCheck = $smsService->checkOtpRateLimit($request->phone_number);
+        if (!$rateCheck['allowed']) {
+            return response()->json([
+                'message' => $rateCheck['message'],
+                'retry_after' => $rateCheck['retry_after'] ?? 60,
+            ], 429);
+        }
+
         // Generate OTP
         $otp = $account->generateOtp();
 
-        // In production, send SMS here
-        // SmsService::send($account->phone_number, "Your OSCA Senior Portal OTP is: {$otp}. Valid for 10 minutes.");
+        // Send OTP via SMS
+        $smsResult = $smsService->sendOtp($request->phone_number, $otp);
+
+        if (!$smsResult['success']) {
+            return response()->json([
+                'message' => $smsResult['message'] ?? 'SMS service error',
+            ], 503);
+        }
 
         return response()->json([
             'message' => 'OTP sent to your registered phone number',
             'senior_id' => $senior->id,
             'expires_in' => 600, // 10 minutes
-            // DEV ONLY: Remove in production
-            'dev_otp' => config('app.debug') ? $otp : null,
+            'sms_sent' => true,
         ]);
     }
 

@@ -19,6 +19,7 @@ import {
     Tooltip,
     Alert,
     Divider,
+    Radio,
 } from 'antd';
 import {
     PlusOutlined,
@@ -28,8 +29,9 @@ import {
     GiftOutlined,
     CheckCircleOutlined,
     StopOutlined,
+    TeamOutlined,
 } from '@ant-design/icons';
-import { benefitTypesApi, registrationApi } from '../../services/api';
+import { benefitTypesApi, registrationApi, districtApi, barangayManagementApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 const { Title, Text } = Typography;
@@ -46,7 +48,9 @@ function BenefitSettings() {
     const [submitting, setSubmitting] = useState(false);
     const [barangays, setBarangays] = useState([]);
     const [branches, setBranches] = useState([]);
+    const [districts, setDistricts] = useState([]);
     const [targetScope, setTargetScope] = useState('all');
+    const [scopeBarangayMode, setScopeBarangayMode] = useState('all');
 
     const isMainAdmin = user?.role_id === 1;
 
@@ -54,6 +58,7 @@ function BenefitSettings() {
         loadBenefitTypes();
         loadBarangays();
         loadBranches();
+        loadDistricts();
     }, []);
 
     const loadBenefitTypes = async () => {
@@ -70,7 +75,7 @@ function BenefitSettings() {
 
     const loadBarangays = async () => {
         try {
-            const response = await registrationApi.getBarangays();
+            const response = await barangayManagementApi.getList();
             setBarangays(response.data.data || []);
         } catch (error) {
             console.error('Failed to load barangays:', error);
@@ -86,6 +91,15 @@ function BenefitSettings() {
         }
     };
 
+    const loadDistricts = async () => {
+        try {
+            const response = await districtApi.getList();
+            setDistricts(response.data.data || []);
+        } catch (error) {
+            console.error('Failed to load districts:', error);
+        }
+    };
+
     const openModal = (mode, record = null) => {
         setModalMode(mode);
         setSelectedType(record);
@@ -93,9 +107,14 @@ function BenefitSettings() {
             const formValues = {
                 ...record,
                 barangay_ids: record.barangay_ids || [],
+                district_id: record.district_id || undefined,
             };
             form.setFieldsValue(formValues);
             setTargetScope(record.target_scope || 'all');
+            // Determine if specific barangays were selected for district/branch scope
+            const hasSpecificBarangays = (record.target_scope === 'district' || record.target_scope === 'branch')
+                && record.barangay_ids && record.barangay_ids.length > 0;
+            setScopeBarangayMode(hasSpecificBarangays ? 'specific' : 'all');
         } else {
             form.resetFields();
             form.setFieldsValue({
@@ -103,6 +122,7 @@ function BenefitSettings() {
                 target_scope: isMainAdmin ? 'all' : 'branch',
             });
             setTargetScope(isMainAdmin ? 'all' : 'branch');
+            setScopeBarangayMode('all');
         }
         setModalVisible(true);
     };
@@ -111,6 +131,11 @@ function BenefitSettings() {
         try {
             const values = await form.validateFields();
             setSubmitting(true);
+
+            // Clear barangay_ids if scope is district/branch with 'all' barangay mode
+            if ((values.target_scope === 'district' || values.target_scope === 'branch') && scopeBarangayMode === 'all') {
+                values.barangay_ids = [];
+            }
 
             if (modalMode === 'create') {
                 await benefitTypesApi.create(values);
@@ -214,9 +239,37 @@ function BenefitSettings() {
                 if (record.target_scope === 'branch') {
                     return <Tag color="blue">{record.branch?.name || 'Field Office'}</Tag>;
                 }
+                if (record.target_scope === 'district') {
+                    return <Tag color="geekblue">{record.district?.name || 'District'}</Tag>;
+                }
                 return (
                     <Tooltip title={record.barangays?.map(b => b.name).join(', ')}>
                         <Tag color="orange">{record.barangays?.length || 0} Barangays</Tag>
+                    </Tooltip>
+                );
+            },
+        },
+        {
+            title: 'Eligibility',
+            key: 'eligibility',
+            render: (_, record) => {
+                const sectors = record.required_sectors || [];
+                const subCats = record.required_sub_categories || [];
+                if (sectors.length === 0 && subCats.length === 0) {
+                    return <Text type="secondary">All seniors</Text>;
+                }
+                const mode = record.association_mode === 'all' ? 'ALL of' : 'ANY of';
+                const items = [...sectors, ...subCats];
+                return (
+                    <Tooltip title={`Must match ${mode}: ${items.join(', ')}`}>
+                        <Space size={2} wrap>
+                            <TeamOutlined style={{ color: '#722ed1' }} />
+                            <Text style={{ fontSize: 12 }}>{mode}:</Text>
+                            {items.slice(0, 2).map(item => (
+                                <Tag key={item} color="purple" style={{ fontSize: 11 }}>{item}</Tag>
+                            ))}
+                            {items.length > 2 && <Tag>+{items.length - 2}</Tag>}
+                        </Space>
                     </Tooltip>
                 );
             },
@@ -271,7 +324,7 @@ function BenefitSettings() {
             <Card>
                 <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
                     <Col>
-                        <Title level={4} style={{ margin: 0 }}>Benefit Types Management</Title>
+                        <Title level={4} style={{ margin: 0 }}>Benefits Configuration</Title>
                         <Text type="secondary">Configure benefits available for senior citizens</Text>
                     </Col>
                     <Col>
@@ -284,7 +337,7 @@ function BenefitSettings() {
                                 icon={<PlusOutlined />}
                                 onClick={() => openModal('create')}
                             >
-                                Add Benefit Type
+                                Add New Benefit
                             </Button>
                         </Space>
                     </Col>
@@ -292,7 +345,7 @@ function BenefitSettings() {
 
                 <Alert
                     message="Benefit Eligibility"
-                    description="Seniors are automatically eligible for benefits based on their age and barangay. Set the minimum age and target barangays for each benefit type."
+                    description="Seniors are automatically eligible for benefits based on their age, barangay, and association (target sectors / sub-categories). Configure eligibility criteria for each benefit type."
                     type="info"
                     showIcon
                     style={{ marginBottom: 16 }}
@@ -308,7 +361,7 @@ function BenefitSettings() {
 
             {/* Create/Edit Modal */}
             <Modal
-                title={modalMode === 'create' ? 'Add Benefit Type' : 'Edit Benefit Type'}
+                title={modalMode === 'create' ? 'Add New Benefit' : 'Edit Benefit'}
                 open={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 onOk={handleSubmit}
@@ -410,27 +463,143 @@ function BenefitSettings() {
                         help="Which barangays can access this benefit"
                     >
                         <Select
-                            onChange={(val) => setTargetScope(val)}
+                            onChange={(val) => {
+                                setTargetScope(val);
+                                setScopeBarangayMode('all');
+                                form.setFieldsValue({ barangay_ids: [], branch_id: undefined, district_id: undefined });
+                            }}
                             disabled={!isMainAdmin}
                         >
                             {isMainAdmin && <Option value="all">All Barangays</Option>}
                             <Option value="branch">Specific Field Office</Option>
+                            {isMainAdmin && <Option value="district">By District</Option>}
                             <Option value="barangays">Specific Barangays</Option>
                         </Select>
                     </Form.Item>
 
                     {targetScope === 'branch' && (
-                        <Form.Item
-                            name="branch_id"
-                            label="Field Office"
-                            rules={[{ required: targetScope === 'branch', message: 'Required' }]}
-                        >
-                            <Select placeholder="Select field office" showSearch optionFilterProp="children">
-                                {branches.map(b => (
-                                    <Option key={b.id} value={b.id}>{b.name}</Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
+                        <>
+                            <Form.Item
+                                name="branch_id"
+                                label="Field Office"
+                                rules={[{ required: targetScope === 'branch', message: 'Required' }]}
+                            >
+                                <Select
+                                    placeholder="Select field office"
+                                    showSearch
+                                    optionFilterProp="children"
+                                    onChange={() => {
+                                        setScopeBarangayMode('all');
+                                        form.setFieldsValue({ barangay_ids: [] });
+                                    }}
+                                >
+                                    {branches.map(b => (
+                                        <Option key={b.id} value={b.id}>{b.name}</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            <Form.Item label="Barangay Coverage">
+                                <Select
+                                    value={scopeBarangayMode}
+                                    onChange={(val) => {
+                                        setScopeBarangayMode(val);
+                                        if (val === 'all') form.setFieldsValue({ barangay_ids: [] });
+                                    }}
+                                >
+                                    <Option value="all">
+                                        All barangays under {branches.find(b => b.id === form.getFieldValue('branch_id'))?.name || 'selected Field Office'}
+                                    </Option>
+                                    <Option value="specific">Specific barangays only</Option>
+                                </Select>
+                            </Form.Item>
+
+                            {scopeBarangayMode === 'specific' && (
+                                <Form.Item
+                                    name="barangay_ids"
+                                    label="Select Barangays"
+                                    rules={[{ required: true, message: 'Select at least one barangay' }]}
+                                >
+                                    <Select
+                                        mode="multiple"
+                                        placeholder="Select barangays"
+                                        showSearch
+                                        optionFilterProp="children"
+                                        style={{ width: '100%' }}
+                                    >
+                                        {barangays
+                                            .filter(b => b.branch_id === form.getFieldValue('branch_id'))
+                                            .map(b => (
+                                                <Option key={b.id} value={b.id}>{b.name}</Option>
+                                            ))}
+                                    </Select>
+                                </Form.Item>
+                            )}
+                        </>
+                    )}
+
+                    {targetScope === 'district' && (
+                        <>
+                            <Form.Item
+                                name="district_id"
+                                label="District"
+                                rules={[{ required: targetScope === 'district', message: 'Select a district' }]}
+                            >
+                                <Select
+                                    placeholder="Select district"
+                                    showSearch
+                                    optionFilterProp="children"
+                                    onChange={() => {
+                                        setScopeBarangayMode('all');
+                                        form.setFieldsValue({ barangay_ids: [] });
+                                    }}
+                                >
+                                    {districts.map(d => (
+                                        <Option key={d.id} value={d.id}>{d.name}</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            <Form.Item label="Barangay Coverage">
+                                <Select
+                                    value={scopeBarangayMode}
+                                    onChange={(val) => {
+                                        setScopeBarangayMode(val);
+                                        if (val === 'all') form.setFieldsValue({ barangay_ids: [] });
+                                    }}
+                                >
+                                    <Option value="all">
+                                        All barangays under {districts.find(d => d.id === form.getFieldValue('district_id'))?.name || 'selected District'}
+                                    </Option>
+                                    <Option value="specific">Specific barangays only</Option>
+                                </Select>
+                            </Form.Item>
+
+                            {scopeBarangayMode === 'specific' && (
+                                <Form.Item
+                                    name="barangay_ids"
+                                    label="Select Barangays"
+                                    rules={[{ required: true, message: 'Select at least one barangay' }]}
+                                >
+                                    <Select
+                                        mode="multiple"
+                                        placeholder="Select barangays"
+                                        showSearch
+                                        optionFilterProp="children"
+                                        style={{ width: '100%' }}
+                                    >
+                                        {barangays
+                                            .filter(b => {
+                                                const selectedDistrict = districts.find(d => d.id === form.getFieldValue('district_id'));
+                                                return selectedDistrict && b.district === selectedDistrict.name;
+                                            })
+                                            .map(b => (
+                                                <Option key={b.id} value={b.id}>{b.name}</Option>
+                                            ))}
+                                    </Select>
+                                </Form.Item>
+                            )}
+                        </>
                     )}
 
                     {targetScope === 'barangays' && (
@@ -452,6 +621,67 @@ function BenefitSettings() {
                             </Select>
                         </Form.Item>
                     )}
+
+                    <Divider orientation="left">Association Eligibility</Divider>
+
+                    <Alert
+                        message="Optional: Restrict this benefit to seniors with specific associations"
+                        description="Leave both fields empty to allow all seniors. If filled, only seniors matching the selected sectors/sub-categories will be eligible."
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                    />
+
+                    <Form.Item
+                        name="required_sectors"
+                        label="Required Target Sectors"
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="Leave empty for no restriction"
+                            allowClear
+                            style={{ width: '100%' }}
+                        >
+                            <Option value="PNGNA">PNGNA</Option>
+                            <Option value="WEPC">WEPC</Option>
+                            <Option value="PWD">PWD</Option>
+                            <Option value="YNSP">YNSP</Option>
+                            <Option value="PASP">PASP</Option>
+                            <Option value="KIA/WIA">KIA/WIA</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="required_sub_categories"
+                        label="Required Sub-Categories"
+                    >
+                        <Select
+                            mode="multiple"
+                            placeholder="Leave empty for no restriction"
+                            allowClear
+                            style={{ width: '100%' }}
+                        >
+                            <Option value="Solo Parents">Solo Parents</Option>
+                            <Option value="Indigenous Person (IP)">Indigenous Person (IP)</Option>
+                            <Option value="Recovering Person who used drugs">Recovering Person who used drugs</Option>
+                            <Option value="4P's DSWD Beneficiaries">4P's (DSWD Beneficiaries)</Option>
+                            <Option value="Street Dwellers">Street Dwellers</Option>
+                            <Option value="Psychosocial/Mental/Learning Disability">Psychosocial/Mental/Learning Disability</Option>
+                            <Option value="Stateless Person/Asylum">Stateless Person/Asylum</Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="association_mode"
+                        label="Matching Mode"
+                        help="'Must match ALL' = senior must belong to every selected item. 'Must match ANY' = senior only needs at least one."
+                        initialValue="any"
+                    >
+                        <Radio.Group>
+                            <Radio.Button value="any">Must match ANY (at least one)</Radio.Button>
+                            <Radio.Button value="all">Must match ALL</Radio.Button>
+                        </Radio.Group>
+                    </Form.Item>
                 </Form>
             </Modal>
         </div>

@@ -17,6 +17,10 @@ class BenefitClaim extends Model
         'status',
         'released_at',
         'processed_by',
+        'claimed_by',
+        'approved_by',
+        'released_by',
+        'rejected_by',
         'notes',
     ];
 
@@ -32,49 +36,61 @@ class BenefitClaim extends Model
     const STATUS_RELEASED = 'released';
     const STATUS_REJECTED = 'rejected';
 
-    /**
-     * Get the senior citizen for this claim.
-     */
+    // Get the senior citizen for this claim.
     public function senior()
     {
         return $this->belongsTo(SeniorCitizen::class, 'senior_id');
     }
 
-    /**
-     * Get the benefit type for this claim.
-     */
+    // Get the benefit type for this claim.
     public function benefitType()
     {
         return $this->belongsTo(BenefitType::class);
     }
 
-    /**
-     * Get the user who processed this claim.
-     */
+    // Get the user who processed this claim.
     public function processor()
     {
         return $this->belongsTo(User::class, 'processed_by');
     }
 
-    /**
-     * Scope to filter by status.
-     */
+    // Get the user who filed/created this claim.
+    public function claimer()
+    {
+        return $this->belongsTo(User::class, 'claimed_by');
+    }
+
+    // Get the user who approved this claim.
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // Get the user who released this claim.
+    public function releaser()
+    {
+        return $this->belongsTo(User::class, 'released_by');
+    }
+
+    // Get the user who rejected this claim.
+    public function rejecter()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    // Scope to filter by status.
     public function scopeStatus($query, string $status)
     {
         return $query->where('status', $status);
     }
 
-    /**
-     * Scope to filter by year.
-     */
+    // Scope to filter by year.
     public function scopeForYear($query, int $year)
     {
         return $query->where('claim_year', $year);
     }
 
-    /**
-     * Scope to filter claims accessible by a user based on their role.
-     */
+    // Scope to filter claims accessible by a user based on their role.
     public function scopeAccessibleBy($query, $user)
     {
         if ($user->isMainAdmin()) {
@@ -89,9 +105,6 @@ class BenefitClaim extends Model
         });
     }
 
-    /**
-     * Get status color for UI.
-     */
     public function getStatusColorAttribute(): string
     {
         return match ($this->status) {

@@ -81,6 +81,15 @@ class AnnouncementController extends Controller
             }
         }
 
+        // Detect publish action
+        if (isset($updateData['is_published']) && $updateData['is_published'] && !$announcement->getOriginal('is_published')) {
+            $actionKey = 'announcement_publish';
+            $desc = "Announcement published: {$announcement->title}";
+        } else {
+            $actionKey = 'announcement_update';
+            $desc = "Announcement updated: {$announcement->title}";
+        }
+
         $announcement->update($updateData);
 
         return response()->json(['success' => true, 'data' => $announcement->fresh(['type', 'media'])]);

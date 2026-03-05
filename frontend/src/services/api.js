@@ -52,6 +52,8 @@ export const dashboardApi = {
   getAgeDistribution: () => api.get('/dashboard/age-distribution'),
 
   getGenderDistribution: () => api.get('/dashboard/gender-distribution'),
+
+  getHeatmapData: () => api.get('/dashboard/heatmap'),
 };
 
 // Seniors API
@@ -62,7 +64,7 @@ export const seniorsApi = {
 
   getStatistics: () => api.get('/seniors/statistics'),
 
-  export: () => api.get('/seniors/export', { responseType: 'blob' }),
+  export: (params) => api.get('/seniors/export', { params, responseType: 'blob' }),
 
   update: (id, data) => api.put(`/seniors/${id}`, data),
 };
@@ -147,6 +149,74 @@ export const registrationApi = {
 
   deleteDocument: (documentId) =>
     api.delete(`/registration/document/${documentId}`),
+
+  searchFamilySenior: (query) =>
+    api.get("/registration/search-family-senior", { params: { query } }),
+};
+
+// Renewal API (Renew ID)
+export const renewalApi = {
+  searchByOscaId: (oscaId) =>
+    api.get("/renew/search", { params: { osca_id: oscaId } }),
+
+  submitNew: (data) => api.post("/renew/new", data),
+
+  getById: (id) => api.get(`/renew/${id}`),
+
+  update: (id, data) => api.put(`/renew/${id}`, data),
+
+  getDocuments: (id) => api.get(`/renew/${id}/documents`),
+
+  uploadDocument: (formData) =>
+    api.post("/renew/upload-document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+
+  deleteDocument: (documentId) => api.delete(`/renew/document/${documentId}`),
+};
+
+// Replace Lost ID API
+export const replaceLostApi = {
+  searchByOscaId: (oscaId) =>
+    api.get("/replace-lost/search", { params: { osca_id: oscaId } }),
+
+  submitNew: (data) => api.post("/replace-lost/new", data),
+
+  getById: (id) => api.get(`/replace-lost/${id}`),
+
+  update: (id, data) => api.put(`/replace-lost/${id}`, data),
+
+  getDocuments: (id) => api.get(`/replace-lost/${id}/documents`),
+
+  uploadDocument: (formData) =>
+    api.post("/replace-lost/upload-document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+
+  deleteDocument: (documentId) =>
+    api.delete(`/replace-lost/document/${documentId}`),
+};
+
+// Replace Damaged ID API
+export const replaceDamagedApi = {
+  searchByOscaId: (oscaId) =>
+    api.get("/replace-damaged/search", { params: { osca_id: oscaId } }),
+
+  submitNew: (data) => api.post("/replace-damaged/new", data),
+
+  getById: (id) => api.get(`/replace-damaged/${id}`),
+
+  update: (id, data) => api.put(`/replace-damaged/${id}`, data),
+
+  getDocuments: (id) => api.get(`/replace-damaged/${id}/documents`),
+
+  uploadDocument: (formData) =>
+    api.post("/replace-damaged/upload-document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+
+  deleteDocument: (documentId) =>
+    api.delete(`/replace-damaged/document/${documentId}`),
 };
 
 // Public API (No authentication required)
@@ -159,6 +229,8 @@ export const publicApi = {
 
   checkStatus: (referenceNumber) =>
     api.get(`/public/status/${referenceNumber}`),
+
+  getStats: () => api.get('/public/stats'),
 };
 
 // Pre-Registration Admin API
@@ -239,7 +311,7 @@ export const accountsApi = {
     api.get(`/admin/accounts/barangays-by-branch/${branchId}`),
 };
 
-// Branch (Field Office) Management API
+// Field Office Management API
 export const branchApi = {
   getList: () => api.get('/admin/branches'),
 
@@ -280,6 +352,20 @@ export const barangayManagementApi = {
     api.delete(`/admin/barangays/${barangayId}/unassign`),
 };
 
+// District Management API
+export const districtApi = {
+  getList: () => api.get("/admin/districts"),
+
+  create: (data) => api.post("/admin/districts", data),
+
+  update: (id, data) => api.put(`/admin/districts/${id}`, data),
+
+  delete: (id) => api.delete(`/admin/districts/${id}`),
+
+  assignBarangays: (id, barangayIds) =>
+    api.post(`/admin/districts/${id}/assign-barangays`, { barangay_ids: barangayIds }),
+};
+
 // Benefit Types Management API
 export const benefitTypesApi = {
   getAll: () => api.get('/admin/benefit-types'),
@@ -291,6 +377,52 @@ export const benefitTypesApi = {
   delete: (id) => api.delete(`/admin/benefit-types/${id}`),
 
   toggle: (id) => api.patch(`/admin/benefit-types/${id}/toggle`),
+};
+
+// Benefit Complaints API (admin)
+export const benefitComplaintsApi = {
+  getList: (params) => api.get("/benefits/complaints", { params }),
+
+  show: (id) => api.get(`/benefits/complaints/${id}`),
+
+  respond: (id, data) => api.patch(`/benefits/complaints/${id}/respond`, data),
+};
+
+// Audit Log API
+export const auditLogApi = {
+  getList: (params) => api.get('/admin/audit-logs', { params }),
+
+  getById: (id) => api.get(`/admin/audit-logs/${id}`),
+
+  getStats: () => api.get('/admin/audit-logs/stats'),
+};
+
+// Dropdown / Lookup Management API
+export const dropdownApi = {
+  getTypes: () => api.get('/admin/dropdowns/types'),
+
+  getAll: (type) => api.get(`/admin/dropdowns/${type}`),
+
+  create: (type, data) => api.post(`/admin/dropdowns/${type}`, data),
+
+  update: (type, id, data) => api.put(`/admin/dropdowns/${type}/${id}`, data),
+
+  toggleEnabled: (type, id) => api.patch(`/admin/dropdowns/${type}/${id}/toggle`),
+
+  reorder: (type, order) => api.post(`/admin/dropdowns/${type}/reorder`, { order }),
+};
+
+// SMS Settings API
+export const smsApi = {
+  getSettings: () => api.get('/admin/sms/settings'),
+
+  updateSettings: (settings) => api.put('/admin/sms/settings', { settings }),
+
+  getLogs: (params) => api.get('/admin/sms/logs', { params }),
+
+  getStats: () => api.get('/admin/sms/stats'),
+
+  sendTest: (phone_number) => api.post('/admin/sms/test', { phone_number }),
 };
 
 export default api;
