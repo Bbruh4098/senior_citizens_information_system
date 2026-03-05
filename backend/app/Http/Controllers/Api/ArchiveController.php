@@ -152,7 +152,7 @@ class ArchiveController extends Controller
                 'original_updated_at' => optional($archive->original_updated_at)->toIso8601String(),
                 'archived_at' => optional($archive->archived_at)->toIso8601String(),
                 'archived_by' => $archive->archived_by,
-                'archived_by_name' => $archive->archivedBy?->name,
+                'archived_by_name' => $archive->archivedBy?->full_name,
             ];
         });
 
@@ -251,7 +251,7 @@ class ArchiveController extends Controller
                 'original_updated_at' => optional($archive->original_updated_at)->toIso8601String(),
                 'archived_at' => optional($archive->archived_at)->toIso8601String(),
                 'archived_by' => $archive->archived_by,
-                'archived_by_name' => $archive->archivedBy?->name,
+                'archived_by_name' => $archive->archivedBy?->full_name,
             ],
         ]);
     }
