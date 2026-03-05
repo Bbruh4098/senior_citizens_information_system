@@ -578,7 +578,18 @@ const Seniors = () => {
                                                 </Tag>
                                             )
                                         },
-                                        { title: 'Filed', dataIndex: 'created_at', key: 'created_at' },
+                                        {
+                                            title: 'Filed By', dataIndex: 'filed_by', key: 'filed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Processed By', dataIndex: 'processed_by', key: 'processed_by',
+                                            render: (text) => text || '—',
+                                        },
+                                        {
+                                            title: 'Released By', dataIndex: 'released_by', key: 'released_by',
+                                            render: (text) => text || '—',
+                                        },
                                     ]}
                                     dataSource={claimHistoryModal.data.claims}
                                     rowKey="id"

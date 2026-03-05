@@ -47,7 +47,7 @@ class BenefitController extends Controller
         $perPage = $request->get('per_page', 15);
         $currentYear = now()->year;
 
-        $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor'])
+        $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor', 'claimer', 'approver', 'releaser', 'rejecter'])
             ->accessibleBy($user);
 
         // Filter by status
@@ -457,6 +457,7 @@ class BenefitController extends Controller
             'claim_year' => $currentYear,
             'amount' => $benefitType->amount,
             'status' => 'pending',
+            'claimed_by' => $user->id,
             'notes' => $request->notes,
         ]);
 
@@ -502,8 +503,17 @@ class BenefitController extends Controller
         $claim->status = $request->status;
         $claim->processed_by = $user->id;
 
-        if ($request->status === 'released') {
-            $claim->released_at = now();
+        switch ($request->status) {
+            case 'approved':
+                $claim->approved_by = $user->id;
+                break;
+            case 'released':
+                $claim->released_by = $user->id;
+                $claim->released_at = now();
+                break;
+            case 'rejected':
+                $claim->rejected_by = $user->id;
+                break;
         }
 
         if ($request->notes) {
@@ -511,7 +521,7 @@ class BenefitController extends Controller
         }
 
         $claim->save();
-        $claim->load(['senior', 'benefitType', 'processor']);
+        $claim->load(['senior', 'benefitType', 'processor', 'claimer', 'approver', 'releaser', 'rejecter']);
 
         $seniorName = "{$claim->senior->first_name} {$claim->senior->last_name}";
         $statusLabel = ucfirst($request->status);
@@ -536,7 +546,7 @@ class BenefitController extends Controller
      */
     public function seniorClaims($seniorId)
     {
-        $senior = SeniorCitizen::with(['benefitClaims.benefitType', 'benefitClaims.processor', 'barangay'])
+        $senior = SeniorCitizen::with(['benefitClaims.benefitType', 'benefitClaims.processor', 'benefitClaims.claimer', 'benefitClaims.approver', 'benefitClaims.rejecter', 'benefitClaims.releaser', 'barangay'])
             ->find($seniorId);
 
         if (!$senior) {
@@ -598,7 +608,9 @@ class BenefitController extends Controller
                 'claim_year' => $claim->claim_year,
                 'status' => $claim->status,
                 'released_at' => $claim->released_at?->format('Y-m-d'),
-                'processed_by' => $claim->processor?->name,
+                'filed_by' => $claim->claimer ? $claim->claimer->first_name . ' ' . $claim->claimer->last_name : null,
+                'processed_by' => $claim->approver ? $claim->approver->first_name . ' ' . $claim->approver->last_name : ($claim->rejecter ? $claim->rejecter->first_name . ' ' . $claim->rejecter->last_name : ($claim->processor ? $claim->processor->first_name . ' ' . $claim->processor->last_name : null)),
+                'released_by' => $claim->releaser ? $claim->releaser->first_name . ' ' . $claim->releaser->last_name : null,
                 'notes' => $claim->notes,
                 'created_at' => $claim->created_at->format('Y-m-d'),
             ];

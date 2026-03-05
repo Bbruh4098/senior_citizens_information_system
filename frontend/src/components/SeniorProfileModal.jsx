@@ -409,10 +409,28 @@ function SeniorProfileModal({ visible, seniorId, onClose }) {
                                 },
                             },
                             {
-                                title: 'Date',
+                                title: 'Date Filed',
                                 dataIndex: 'created_at',
-                                key: 'created_at',
+                                key: 'date_filed',
                                 render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '-',
+                            },
+                            {
+                                title: 'Filed By',
+                                dataIndex: 'filed_by',
+                                key: 'filed_by',
+                                render: (text) => text || '—',
+                            },
+                            {
+                                title: 'Processed By',
+                                dataIndex: 'processed_by',
+                                key: 'processed_by',
+                                render: (text) => text || '—',
+                            },
+                            {
+                                title: 'Released By',
+                                dataIndex: 'released_by',
+                                key: 'released_by',
+                                render: (text) => text || '—',
                             },
                         ]}
                     />
