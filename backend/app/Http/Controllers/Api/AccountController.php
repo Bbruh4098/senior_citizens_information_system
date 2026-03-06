@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Archive;
 use App\Models\User;
 use App\Models\Branch;
 use App\Models\Barangay;
@@ -281,6 +282,44 @@ class AccountController extends Controller
         $oldStatus = $account->is_active;
         $account->is_active = !$account->is_active;
         $account->save();
+
+        // Archive when account is disabled so it appears in Archives page.
+        if ($oldStatus && !$account->is_active) {
+            $alreadyArchived = Archive::query()
+                ->where('archive_type', 'admin_user')
+                ->where('reference_id', $account->id)
+                ->where('archive_reason', 'deactivated')
+                ->exists();
+
+            if (!$alreadyArchived) {
+                Archive::create([
+                    'archive_type' => 'admin_user',
+                    'reference_id' => $account->id,
+                    'archive_data' => [
+                        'id' => $account->id,
+                        'employee_id' => $account->employee_id,
+                        'username' => $account->username,
+                        'name' => $account->full_name,
+                        'first_name' => $account->first_name,
+                        'middle_name' => $account->middle_name,
+                        'last_name' => $account->last_name,
+                        'extension' => $account->extension,
+                        'role_id' => $account->role_id,
+                        'branch_id' => $account->branch_id,
+                        'barangay_id' => $account->barangay_id,
+                        'email' => $account->email,
+                        'position' => $account->position,
+                    ],
+                    'archive_reason' => 'deactivated',
+                    'archive_notes' => 'Automatically archived after account disable.',
+                    'original_created_at' => $account->created_at,
+                    'original_updated_at' => $account->updated_at,
+                    'deceased_date' => null,
+                    'archived_by' => $user->id,
+                    'archived_at' => now(),
+                ]);
+            }
+        }
 
         $this->logAudit(
             'account_toggle_status', 'users', $account->id,
