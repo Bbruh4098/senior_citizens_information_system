@@ -162,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/eligible', [\App\Http\Controllers\Api\BenefitController::class, 'eligible']);
         Route::get('/eligible/export', [\App\Http\Controllers\Api\BenefitController::class, 'exportEligible']);
         Route::get('/statistics', [\App\Http\Controllers\Api\BenefitController::class, 'statistics']);
+        Route::get('/distribution', [\App\Http\Controllers\Api\BenefitController::class, 'typeDistribution']);
         Route::post('/claims', [\App\Http\Controllers\Api\BenefitController::class, 'store']);
         Route::patch('/claims/{id}/status', [\App\Http\Controllers\Api\BenefitController::class, 'updateStatus']);
 

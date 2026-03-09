@@ -785,7 +785,7 @@ const NewApplication = () => {
                     </Form.Item>
                 </Col>
                 <Col xs={24} sm={12} md={6}>
-                    <Form.Item name="middle_name" label="Middle Name/Middle Initial">
+                    <Form.Item name="middle_name" label="Middle Name">
                         <Input placeholder="Middle name" size="large" />
                     </Form.Item>
                 </Col>

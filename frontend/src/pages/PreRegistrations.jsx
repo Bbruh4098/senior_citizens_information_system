@@ -367,7 +367,7 @@ const PreRegistrations = () => {
                             {detailModal.item.applicant_data?.assistant_info && (
                                 <>
                                     <Descriptions.Item label="Assistant Name">
-                                        {detailModal.item.applicant_data.assistant_info.name || '-'}
+                                        {`${detailModal.item.applicant_data.assistant_info.first_name || ''} ${detailModal.item.applicant_data.assistant_info.middle_name || ''} ${detailModal.item.applicant_data.assistant_info.last_name || ''} ${detailModal.item.applicant_data.assistant_info.extension || ''}`.trim() || '-'}
                                     </Descriptions.Item>
                                     <Descriptions.Item label="Relationship">
                                         {detailModal.item.applicant_data.assistant_info.relationship || '-'}

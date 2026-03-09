@@ -398,6 +398,38 @@ class BenefitController extends Controller
         ]);
     }
 
+    /**
+     * Get benefit distribution by type for dashboard charts.
+     */
+    public function typeDistribution(Request $request)
+    {
+        $user = $request->user();
+        $year = (int) ($request->get('year', now()->year));
+
+        $baseQuery = BenefitClaim::accessibleBy($user)->forYear($year);
+
+        $distribution = $baseQuery
+            ->join('benefit_types', 'benefit_claims.benefit_type_id', '=', 'benefit_types.id')
+            ->select(
+                'benefit_claims.benefit_type_id',
+                'benefit_types.name',
+                DB::raw('COUNT(*) as total_claims'),
+                DB::raw("SUM(CASE WHEN benefit_claims.status = '" . BenefitClaim::STATUS_RELEASED . "' THEN 1 ELSE 0 END) as released_claims"),
+                DB::raw("SUM(CASE WHEN benefit_claims.status = '" . BenefitClaim::STATUS_RELEASED . "' THEN benefit_claims.amount ELSE 0 END) as total_released_amount")
+            )
+            ->groupBy('benefit_claims.benefit_type_id', 'benefit_types.name')
+            ->orderByDesc('total_claims')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'distribution' => $distribution,
+            ],
+        ]);
+    }
+
     // Create a new benefit claim.
     public function store(Request $request)
     {

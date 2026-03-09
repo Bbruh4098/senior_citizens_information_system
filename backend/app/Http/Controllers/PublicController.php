@@ -131,9 +131,11 @@ class PublicController extends Controller
             'family_members' => 'nullable|array',
             'target_sectors' => 'nullable|array',
             'sub_categories' => 'nullable|array',
-            // Registration type
             'registration_type' => 'required|in:self,assisted',
-            'assistant_name' => 'nullable|required_if:registration_type,assisted|string|max:200',
+            'assistant_first_name' => 'nullable|required_if:registration_type,assisted|string|max:100',
+            'assistant_middle_name' => 'nullable|string|max:100',
+            'assistant_last_name' => 'nullable|required_if:registration_type,assisted|string|max:100',
+            'assistant_extension' => 'nullable|string|max:10',
             'assistant_relationship' => 'nullable|required_if:registration_type,assisted|string|max:100',
             'assistant_contact' => ['nullable', 'required_if:registration_type,assisted', 'string', 'max:20', 'regex:/^09\d{9}$/'],
         ]);
@@ -223,7 +225,10 @@ class PublicController extends Controller
                 // Registration type & assistant
                 'registration_type' => $request->registration_type,
                 'assistant_info' => $request->registration_type === 'assisted' ? [
-                    'name' => $request->assistant_name,
+                    'first_name' => $request->assistant_first_name,
+                    'middle_name' => $request->assistant_middle_name,
+                    'last_name' => $request->assistant_last_name,
+                    'extension' => $request->assistant_extension,
                     'relationship' => $request->assistant_relationship,
                     'contact' => $request->assistant_contact,
                 ] : null,

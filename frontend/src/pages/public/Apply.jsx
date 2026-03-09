@@ -36,6 +36,7 @@ const Apply = () => {
     const [familyMembers, setFamilyMembers] = useState([]);
     const [privacyAgreed, setPrivacyAgreed] = useState(false);
     const [registrationType, setRegistrationType] = useState(null); // 'self' or 'assisted'
+    const [showRelOther, setShowRelOther] = useState(false); // toggle inline 'Other' input for relationship
 
     // Status check state
     const [checkMode, setCheckMode] = useState(false);
@@ -185,11 +186,7 @@ const Apply = () => {
             // If assisted, validate assistant fields from form
             if (registrationType === 'assisted') {
                 try {
-                    const fieldsToValidate = ['assistant_name', 'assistant_relationship', 'assistant_contact'];
-                    const relValue = form.getFieldValue('assistant_relationship');
-                    if (relValue === 'Other') {
-                        fieldsToValidate.push('assistant_relationship_other');
-                    }
+                    const fieldsToValidate = ['assistant_first_name', 'assistant_last_name', 'assistant_relationship', 'assistant_contact'];
                     await form.validateFields(fieldsToValidate);
                 } catch {
                     message.warning('Please fill in all assistant information.');
@@ -276,10 +273,11 @@ const Apply = () => {
 
                 // Registration type & assistant info
                 registration_type: registrationType,
-                assistant_name: registrationType === 'assisted' ? formData.assistant_name : null,
-                assistant_relationship: registrationType === 'assisted'
-                    ? (formData.assistant_relationship === 'Other' ? formData.assistant_relationship_other : formData.assistant_relationship)
-                    : null,
+                assistant_first_name: registrationType === 'assisted' ? formData.assistant_first_name : null,
+                assistant_middle_name: registrationType === 'assisted' ? (formData.assistant_middle_name || null) : null,
+                assistant_last_name: registrationType === 'assisted' ? formData.assistant_last_name : null,
+                assistant_extension: registrationType === 'assisted' ? (formData.assistant_extension || null) : null,
+                assistant_relationship: registrationType === 'assisted' ? formData.assistant_relationship : null,
                 assistant_contact: registrationType === 'assisted' ? formData.assistant_contact : null,
             };
 
@@ -566,47 +564,80 @@ const Apply = () => {
                                                 Assistant Information
                                             </Title>
                                             <Row gutter={16}>
-                                                <Col xs={24} sm={12}>
+                                                <Col xs={24} sm={8}>
                                                     <Form.Item
-                                                        name="assistant_name"
-                                                        label={<span>Full Name <span style={{ color: '#fa8c16' }}>*</span></span>}
-                                                        rules={[{ required: true, message: 'Assistant name is required' }]}
+                                                        name="assistant_first_name"
+                                                        label={<span>First Name <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[{ required: true, message: 'First name is required' }]}
                                                     >
-                                                        <Input placeholder="Full name of the person assisting" size="large" />
+                                                        <Input placeholder="First name" size="large" />
                                                     </Form.Item>
                                                 </Col>
-                                                <Col xs={24} sm={12}>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item name="assistant_middle_name" label="Middle Name">
+                                                        <Input placeholder="Middle name (optional)" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item
+                                                        name="assistant_last_name"
+                                                        label={<span>Last Name <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[{ required: true, message: 'Last name is required' }]}
+                                                    >
+                                                        <Input placeholder="Last name" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                            <Row gutter={16}>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item name="assistant_extension" label="Extension">
+                                                        <Input placeholder="e.g. Jr., Sr., III" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
                                                     <Form.Item
                                                         name="assistant_relationship"
                                                         label={<span>Relationship to Senior <span style={{ color: '#fa8c16' }}>*</span></span>}
                                                         rules={[{ required: true, message: 'Relationship is required' }]}
                                                     >
-                                                        <Select placeholder="Select relationship" size="large">
-                                                            <Option value="Son">Son</Option>
-                                                            <Option value="Daughter">Daughter</Option>
-                                                            <Option value="Grandchild">Grandchild</Option>
-                                                            <Option value="Spouse">Spouse</Option>
-                                                            <Option value="Nephew/Niece">Nephew/Niece</Option>
-                                                            <Option value="Caregiver">Caregiver</Option>
-                                                            <Option value="Social Worker">Social Worker</Option>
-                                                            <Option value="Barangay Official">Barangay Official</Option>
-                                                            <Option value="Other">Other (please specify)</Option>
-                                                        </Select>
-                                                    </Form.Item>
-                                                    <Form.Item noStyle dependencies={['assistant_relationship']}>
-                                                        {() => form.getFieldValue('assistant_relationship') === 'Other' && (
-                                                            <Form.Item
-                                                                name="assistant_relationship_other"
-                                                                rules={[{ required: true, message: 'Please specify the relationship' }]}
+                                                        {showRelOther ? (
+                                                            <Input
+                                                                placeholder="Type relationship"
+                                                                size="large"
+                                                                addonAfter={
+                                                                    <a onClick={() => {
+                                                                        setShowRelOther(false);
+                                                                        form.setFieldsValue({ assistant_relationship: undefined });
+                                                                    }}
+                                                                        style={{ fontSize: 12 }}
+                                                                    >Back</a>
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <Select
+                                                                placeholder="Select relationship"
+                                                                size="large"
+                                                                onChange={(val) => {
+                                                                    if (val === '__other__') {
+                                                                        setShowRelOther(true);
+                                                                        form.setFieldsValue({ assistant_relationship: '' });
+                                                                    }
+                                                                }}
                                                             >
-                                                                <Input placeholder="Please specify the relationship" size="large" />
-                                                            </Form.Item>
+                                                                <Option value="Son">Son</Option>
+                                                                <Option value="Daughter">Daughter</Option>
+                                                                <Option value="Grandchild">Grandchild</Option>
+                                                                <Option value="Spouse">Spouse</Option>
+                                                                <Option value="Nephew/Niece">Nephew/Niece</Option>
+                                                                <Option value="Caregiver">Caregiver</Option>
+                                                                <Option value="Social Worker">Social Worker</Option>
+                                                                <Option value="Barangay Official">Barangay Official</Option>
+                                                                <Option value="__other__">Other (specify)</Option>
+                                                            </Select>
                                                         )}
                                                     </Form.Item>
                                                 </Col>
-                                            </Row>
-                                            <Row gutter={16}>
-                                                <Col xs={24} sm={12}>
+                                                <Col xs={24} sm={8}>
                                                     <Form.Item
                                                         name="assistant_contact"
                                                         label={<span>Contact Number <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -693,7 +724,7 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="middle_name" label="Middle Name/Middle Initial">
+                                            <Form.Item name="middle_name" label="Middle Name">
                                                 <Input placeholder="Enter middle name" size="large" />
                                             </Form.Item>
                                         </Col>
@@ -860,17 +891,6 @@ const Apply = () => {
 
                                     <Row gutter={16}>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="educational_attainment_id" label="Educational Attainment">
-                                                <Select placeholder="Select Educational Attainment" size="large" allowClear>
-                                                    {educationalAttainments.map((ea) => (
-                                                        <Option key={ea.id} value={ea.id}>
-                                                            {ea.name}
-                                                        </Option>
-                                                    ))}
-                                                </Select>
-                                            </Form.Item>
-                                        </Col>
-                                        <Col xs={24} sm={12}>
                                             <Form.Item
                                                 name="mobile_number"
                                                 label={<span>Mobile Number <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -882,21 +902,43 @@ const Apply = () => {
                                                 <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
                                             </Form.Item>
                                         </Col>
-                                    </Row>
-
-                                    <Row gutter={16}>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="telephone_number" label="Telephone Number">
                                                 <Input placeholder="(062) XXX-XXXX" size="large" />
                                             </Form.Item>
                                         </Col>
+                                    </Row>
+
+                                    <Row gutter={16}>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="email" label="Email">
+                                            <Form.Item
+                                                name="email"
+                                                label="Email"
+                                                rules={[
+                                                    { type: 'email', message: 'Please enter a valid email address' },
+                                                ]}
+                                            >
                                                 <Input placeholder="email@example.com" size="large" />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item name="educational_attainment_id" label="Educational Attainment">
+                                                <Select placeholder="Select Educational Attainment" size="large" allowClear>
+                                                    {educationalAttainments.map((ea) => (
+                                                        <Option key={ea.id} value={ea.id}>
+                                                            {ea.name}
+                                                        </Option>
+                                                    ))}
+                                                </Select>
                                             </Form.Item>
                                         </Col>
                                     </Row>
                                     <Row gutter={16}>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item name="occupation" label="Occupation">
+                                                <Input placeholder="Current or previous occupation" size="large" />
+                                            </Form.Item>
+                                        </Col>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="monthly_salary" label="Monthly Salary">
                                                 <InputNumber
@@ -913,11 +955,6 @@ const Apply = () => {
                                     </Row>
 
                                     <Row gutter={16}>
-                                        <Col xs={24} sm={12}>
-                                            <Form.Item name="occupation" label="Occupation">
-                                                <Input placeholder="Current or previous occupation" size="large" />
-                                            </Form.Item>
-                                        </Col>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="other_skills" label="Other Skills">
                                                 <Input placeholder="Additional skills" size="large" />
@@ -1169,13 +1206,13 @@ const Apply = () => {
                                             </Col>
                                             {registrationType === 'assisted' && (
                                                 <>
-                                                    <Col xs={12}>
+                                                    <Col xs={24}>
                                                         <Text type="secondary">Assistant Name</Text>
-                                                        <div><Text strong>{formData.assistant_name || '-'}</Text></div>
+                                                        <div><Text strong>{`${formData.assistant_first_name || ''} ${formData.assistant_middle_name || ''} ${formData.assistant_last_name || ''} ${formData.assistant_extension || ''}`.trim() || '-'}</Text></div>
                                                     </Col>
                                                     <Col xs={12}>
                                                         <Text type="secondary">Relationship</Text>
-                                                        <div><Text strong>{formData.assistant_relationship === 'Other' ? (formData.assistant_relationship_other || '-') : (formData.assistant_relationship || '-')}</Text></div>", "StartLine": 1178, "TargetContent": "                                                        <div><Text strong>{formData.assistant_relationship || '-'}</Text></div>
+                                                        <div><Text strong>{formData.assistant_relationship || '-'}</Text></div>
                                                     </Col>
                                                     <Col xs={12}>
                                                         <Text type="secondary">Contact Number</Text>
