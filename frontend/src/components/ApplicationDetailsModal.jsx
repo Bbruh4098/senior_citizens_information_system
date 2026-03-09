@@ -109,6 +109,12 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
         setPreviewImage(`${baseUrl}/storage/${imagePath}`);
     };
 
+    // Sir Jaydee's comment: Relabeling status for display
+    const statusDisplayLabel = {
+        'Draft': 'For Verification',
+        'For Verification': 'For Approval',
+    };
+
     const getStatusTag = (status) => {
         const statusColors = {
             'Draft': 'default',
@@ -120,7 +126,7 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
             'Printed': 'purple',
             'Claimed': 'green',
         };
-        return <Tag color={statusColors[status] || 'default'}>{status}</Tag>;
+        return <Tag color={statusColors[status] || 'default'}>{statusDisplayLabel[status] || status}</Tag>;
     };
 
     const calculateProgress = (data, docs = [], appTypeId = 1) => {

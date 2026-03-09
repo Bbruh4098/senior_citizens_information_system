@@ -78,6 +78,8 @@ export const applicationsApi = {
   getStatistics: () => api.get('/applications/statistics'),
 
   updateStatus: (id, data) => api.patch(`/applications/${id}/status`, data),
+
+  updateNotes: (id, data) => api.patch(`/applications/${id}/notes`, data),
 };
 
 // ID Printing API
@@ -269,6 +271,8 @@ export const benefitsApi = {
 
   exportEligible: (params) =>
     api.get('/benefits/eligible/export', { params, responseType: 'blob' }),
+
+  getDistribution: (params) => api.get('/benefits/distribution', { params }),
 
   getStatistics: () => api.get('/benefits/statistics'),
 

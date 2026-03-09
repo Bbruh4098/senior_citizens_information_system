@@ -83,6 +83,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/applications/statistics', [ApplicationController::class, 'statistics']);
     Route::get('/applications/{id}', [ApplicationController::class, 'show']);
     Route::patch('/applications/{id}/status', [ApplicationController::class, 'updateStatus']);
+    Route::patch('/applications/{id}/notes', [ApplicationController::class, 'updateNotes']);
 
     // ID Printing
     Route::get('/id-printing', [IdPrintingController::class, 'index']);
@@ -161,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/eligible', [\App\Http\Controllers\Api\BenefitController::class, 'eligible']);
         Route::get('/eligible/export', [\App\Http\Controllers\Api\BenefitController::class, 'exportEligible']);
         Route::get('/statistics', [\App\Http\Controllers\Api\BenefitController::class, 'statistics']);
+        Route::get('/distribution', [\App\Http\Controllers\Api\BenefitController::class, 'typeDistribution']);
         Route::post('/claims', [\App\Http\Controllers\Api\BenefitController::class, 'store']);
         Route::patch('/claims/{id}/status', [\App\Http\Controllers\Api\BenefitController::class, 'updateStatus']);
 

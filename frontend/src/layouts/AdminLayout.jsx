@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Typography, Space, Drawer, Grid } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Typography, Space, Drawer, Grid, ConfigProvider } from 'antd';
 import {
     DashboardOutlined,
     UserOutlined,
@@ -28,6 +28,39 @@ import { useAuth } from '../contexts/AuthContext';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
+// Sidebar color tokens
+const sidebarColors = {
+    bg: '#1b1f27',
+    bgLighter: '#242830',
+    bgHover: '#2d323c',
+    bgActive: '#343a46',
+    accent: '#4f8cff',
+    textPrimary: 'rgba(255, 255, 255, 0.92)',
+    textSecondary: 'rgba(255, 255, 255, 0.55)',
+    border: 'rgba(255, 255, 255, 0.06)',
+};
+
+// Dark sidebar menu theme overrides
+const sidebarMenuTheme = {
+    components: {
+        Menu: {
+            darkItemBg: 'transparent',
+            darkSubMenuItemBg: 'rgba(0, 0, 0, 0.15)',
+            darkItemColor: sidebarColors.textSecondary,
+            darkItemHoverColor: sidebarColors.textPrimary,
+            darkItemHoverBg: sidebarColors.bgHover,
+            darkItemSelectedBg: sidebarColors.accent,
+            darkItemSelectedColor: '#ffffff',
+            itemHeight: 44,
+            itemMarginInline: 8,
+            itemBorderRadius: 8,
+            iconSize: 18,
+            fontSize: 14,
+            collapsedIconSize: 18,
+        },
+    },
+};
 
 const AdminLayout = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -83,7 +116,7 @@ const AdminLayout = () => {
         {
             key: '/admin/pre-registrations',
             icon: <FileTextOutlined />,
-            label: 'Online  Pre-Registrations',
+            label: 'Online Pre-Registrations',
         },
         {
             key: '/admin/seniors',
@@ -161,9 +194,9 @@ const AdminLayout = () => {
 
     const getRoleBadgeColor = (roleId) => {
         switch (roleId) {
-            case 1: return '#52c41a'; // Main Admin - Green
-            case 2: return '#1890ff'; // FO Admin - Blue
-            case 3: return '#faad14'; // Barangay Admin - Gold
+            case 1: return '#4f8cff'; // Main Admin - Blue
+            case 2: return '#36cfc9'; // FO Admin - Teal
+            case 3: return '#ffc53d'; // Barangay Admin - Gold
             default: return '#8c8c8c';
         }
     };
@@ -171,50 +204,94 @@ const AdminLayout = () => {
     // Sidebar content (shared between desktop sider and mobile drawer)
     const SidebarContent = () => (
         <>
-            {/* Logo */}
+            {/* Logo area */}
             <div style={{
                 height: 64,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
+                gap: 12,
+                padding: collapsed && !isMobile ? '0' : '0 20px',
+                borderBottom: `1px solid ${sidebarColors.border}`,
             }}>
                 <img
                     src="/images/osca_logo.jpg"
                     alt="OSCA Logo"
-                    style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }}
+                    style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 8,
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                    }}
                 />
                 {(!collapsed || isMobile) && (
-                    <Text strong style={{ color: '#fff', fontSize: 18 }}>
-                        SCIS Admin
-                    </Text>
+                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                        <Text strong style={{ color: sidebarColors.textPrimary, fontSize: 16, letterSpacing: 0.5 }}>
+                            SCIS
+                        </Text>
+                        <Text style={{ color: sidebarColors.textSecondary, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>
+                            Admin Panel
+                        </Text>
+                    </div>
                 )}
             </div>
 
             {/* Navigation Menu */}
-            <Menu
-                theme="dark"
-                mode="inline"
-                selectedKeys={[location.pathname]}
-                openKeys={openKeys}
-                onOpenChange={(keys) => setOpenKeys(keys)}
-                items={menuItems}
-                onClick={({ key }) => {
-                    // Only navigate if clicking on a leaf item (not a parent with children)
-                    const isParentItem = menuItems.some(item => item.key === key && item.children);
-                    if (!isParentItem) {
-                        navigate(key);
-                        if (isMobile) setMobileMenuOpen(false);
-                    }
-                }}
-                style={{
-                    background: 'transparent',
-                    borderRight: 0,
-                    marginTop: 8,
-                }}
-            />
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 0' }}>
+                <ConfigProvider theme={sidebarMenuTheme}>
+                    <Menu
+                        theme="dark"
+                        mode="inline"
+                        selectedKeys={[location.pathname]}
+                        openKeys={openKeys}
+                        onOpenChange={(keys) => setOpenKeys(keys)}
+                        items={menuItems}
+                        onClick={({ key }) => {
+                            const isParentItem = menuItems.some(item => item.key === key && item.children);
+                            if (!isParentItem) {
+                                navigate(key);
+                                if (isMobile) setMobileMenuOpen(false);
+                            }
+                        }}
+                        style={{
+                            background: 'transparent',
+                            borderRight: 0,
+                        }}
+                    />
+                </ConfigProvider>
+            </div>
+
+            {/* User info at bottom of sidebar */}
+            {(!collapsed || isMobile) && (
+                <div style={{
+                    padding: '12px 16px',
+                    borderTop: `1px solid ${sidebarColors.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                }}>
+                    <Avatar
+                        size={32}
+                        style={{ background: getRoleBadgeColor(userRole), flexShrink: 0 }}
+                        icon={<UserOutlined />}
+                    />
+                    <div style={{ overflow: 'hidden' }}>
+                        <Text
+                            style={{ color: sidebarColors.textPrimary, fontSize: 13, fontWeight: 500, display: 'block' }}
+                            ellipsis
+                        >
+                            {user?.full_name || 'User'}
+                        </Text>
+                        <Text
+                            style={{ color: sidebarColors.textSecondary, fontSize: 11, display: 'block' }}
+                            ellipsis
+                        >
+                            {user?.role_name || 'Admin'}
+                        </Text>
+                    </div>
+                </div>
+            )}
         </>
     );
 
@@ -227,16 +304,18 @@ const AdminLayout = () => {
                     collapsible
                     collapsed={collapsed}
                     width={260}
-                    collapsedWidth={80}
+                    collapsedWidth={72}
                     style={{
-                        background: '#DA1E37',
-                        boxShadow: '2px 0 8px rgba(0, 0, 0, 1)',
+                        background: sidebarColors.bg,
+                        boxShadow: '2px 0 12px rgba(0, 0, 0, 0.15)',
                         position: 'fixed',
                         left: 0,
                         top: 0,
                         bottom: 0,
                         zIndex: 101,
-                        overflow: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
                     }}
                 >
                     <SidebarContent />
@@ -250,7 +329,7 @@ const AdminLayout = () => {
                 onClose={() => setMobileMenuOpen(false)}
                 width={280}
                 styles={{
-                    body: { padding: 0, background: '#DA1E37' },
+                    body: { padding: 0, background: sidebarColors.bg, display: 'flex', flexDirection: 'column', height: '100%' },
                     header: { display: 'none' },
                 }}
             >
@@ -262,14 +341,15 @@ const AdminLayout = () => {
                 }}>
                     <Button
                         type="text"
-                        icon={<CloseOutlined style={{ color: 'white' }} />}
+                        icon={<CloseOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
                         onClick={() => setMobileMenuOpen(false)}
+                        style={{ borderRadius: 6 }}
                     />
                 </div>
                 <SidebarContent />
             </Drawer>
 
-            <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 80 : 260), transition: 'margin-left 0.2s' }}>
+            <Layout style={{ marginLeft: isMobile ? 0 : (collapsed ? 72 : 260), transition: 'margin-left 0.2s ease' }}>
                 {/* Header */}
                 <Header style={{
                     padding: isMobile ? '0 12px' : '0 24px',
@@ -277,7 +357,7 @@ const AdminLayout = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.08)',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
                     position: 'sticky',
                     top: 0,
                     zIndex: 100,
@@ -295,15 +375,21 @@ const AdminLayout = () => {
                             type="text"
                             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                             onClick={() => setCollapsed(!collapsed)}
-                            style={{ fontSize: 18 }}
+                            style={{ fontSize: 18, color: '#555' }}
                         />
                     )}
 
                     <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                        <Space style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s' }}>
+                        <Space style={{
+                            cursor: 'pointer',
+                            padding: '6px 12px',
+                            borderRadius: 10,
+                            transition: 'background 0.2s',
+                            ':hover': { background: '#f5f5f5' },
+                        }}>
                             <Avatar
                                 style={{
-                                    background: '#006fd6',
+                                    background: getRoleBadgeColor(userRole),
                                 }}
                                 icon={<UserOutlined />}
                             />
@@ -322,7 +408,7 @@ const AdminLayout = () => {
                     margin: isMobile ? 8 : 24,
                     padding: isMobile ? 12 : 24,
                     background: '#fff',
-                    borderRadius: 8,
+                    borderRadius: 10,
                     minHeight: 'calc(100vh - 112px)',
                     overflow: 'auto',
                 }}>

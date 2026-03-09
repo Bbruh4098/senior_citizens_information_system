@@ -208,6 +208,23 @@ class ApplicationController extends Controller
         ]);
     }
 
+    // Update application notes/remarks.
+    public function updateNotes(Request $request, $id)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $application = Application::findOrFail($id);
+        $application->update(['notes' => $request->notes]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Remarks updated successfully',
+            'data' => $application,
+        ]);
+    }
+
     /**
      * Update application status.
      * When approving, create the senior_citizen record from applicant_data.

@@ -17,6 +17,7 @@ import {
     message,
     Tooltip,
     Popconfirm,
+    Popover,
 } from 'antd';
 import {
     SearchOutlined,
@@ -36,6 +37,7 @@ import ApplicationDetailsModal from '../../components/ApplicationDetailsModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { TextArea } = Input;
 
 const Applications = () => {
     const navigate = useNavigate();
@@ -161,6 +163,24 @@ const Applications = () => {
         }
     };
 
+    const handleUpdateNotes = async (id, notes) => {
+        try {
+            await applicationsApi.updateNotes(id, { notes });
+            message.success('Remarks updated');
+            fetchApplications();
+        } catch (error) {
+            console.error('Failed to update remarks:', error);
+            message.error('Failed to update remarks');
+        }
+    };
+
+    // Display label mapping (DB value -> display label)
+    const statusDisplayLabel = {
+        'Draft': 'For Verification',
+        'For Verification': 'For Approval',
+    };
+    const getDisplayLabel = (status) => statusDisplayLabel[status] || status;
+
     const getStatusTag = (status) => {
         const statusConfig = {
             'Pending': { color: 'default', icon: <ClockCircleOutlined /> },
@@ -172,7 +192,7 @@ const Applications = () => {
             'Claimed': { color: 'green', icon: <CheckCircleOutlined /> },
         };
         const config = statusConfig[status] || { color: 'default', icon: null };
-        return <Tag color={config.color} icon={config.icon}>{status}</Tag>;
+        return <Tag color={config.color} icon={config.icon}>{getDisplayLabel(status)}</Tag>;
     };
 
     const columns = [
@@ -265,6 +285,52 @@ const Applications = () => {
             },
         },
         {
+            title: 'Remarks',
+            key: 'remarks',
+            width: 160,
+            render: (_, record) => {
+                const RemarksContent = () => {
+                    const [value, setValue] = useState(record.notes || '');
+                    return (
+                        <div style={{ width: 250 }}>
+                            <TextArea
+                                rows={3}
+                                value={value}
+                                onChange={(e) => setValue(e.target.value)}
+                                placeholder="Add remarks..."
+                                maxLength={1000}
+                                showCount
+                            />
+                            <Button
+                                type="primary"
+                                size="small"
+                                style={{ marginTop: 8, width: '100%' }}
+                                onClick={() => handleUpdateNotes(record.id, value)}
+                            >
+                                Save
+                            </Button>
+                        </div>
+                    );
+                };
+                return (
+                    <Popover content={<RemarksContent />} title="Remarks" trigger="click">
+                        {record.notes ? (
+                            <Text
+                                style={{ cursor: 'pointer', color: '#1890ff', maxWidth: 140 }}
+                                ellipsis={{ tooltip: record.notes }}
+                            >
+                                {record.notes}
+                            </Text>
+                        ) : (
+                            <Button type="link" size="small" style={{ padding: 0, color: '#bbb' }}>
+                                + Add
+                            </Button>
+                        )}
+                    </Popover>
+                );
+            },
+        },
+        {
             title: 'Actions',
             key: 'actions',
             width: 200,
@@ -329,7 +395,7 @@ const Applications = () => {
                     <Col xs={12} sm={6}>
                         <Card size="small">
                             <Statistic
-                                title="Drafts"
+                                title="For Verification"
                                 value={statistics.pending || 0}
                                 valueStyle={{ color: '#8c8c8c' }}
                             />
@@ -338,7 +404,7 @@ const Applications = () => {
                     <Col xs={12} sm={6}>
                         <Card size="small">
                             <Statistic
-                                title="For Verification"
+                                title="For Approval"
                                 value={statistics.for_verification || 0}
                                 valueStyle={{ color: '#1890ff' }}
                             />
@@ -380,14 +446,14 @@ const Applications = () => {
                         style={{ cursor: 'pointer', padding: '4px 12px' }}
                         onClick={() => handleStatusFilter('Draft')}
                     >
-                        <FileTextOutlined /> Draft
+                        <FileTextOutlined /> For Verification
                     </Tag>
                     <Tag
                         color={filters.status === 'For Verification' ? 'processing' : 'default'}
                         style={{ cursor: 'pointer', padding: '4px 12px' }}
                         onClick={() => handleStatusFilter('For Verification')}
                     >
-                        <SyncOutlined /> For Verification
+                        <SyncOutlined /> For Approval
                     </Tag>
                     <Tag
                         color={filters.status === 'Approved' ? 'success' : 'default'}
@@ -420,8 +486,8 @@ const Applications = () => {
                             onChange={handleStatusFilter}
                             value={filters.status || undefined}
                         >
-                            <Option value="Draft">Draft</Option>
-                            <Option value="For Verification">For Verification</Option>
+                            <Option value="Draft">For Verification</Option>
+                            <Option value="For Verification">For Approval</Option>
                             <Option value="Approved">Approved</Option>
                             <Option value="Printed">Printed</Option>
                             <Option value="Claimed">Claimed</Option>
@@ -459,7 +525,9 @@ const Applications = () => {
             <Card>
                 <div style={{ overflowX: 'auto' }}>
                     <Table
-                        columns={columns}
+                        columns={['Draft', 'For Verification'].includes(filters.status)
+                            ? columns.filter(c => c.key !== 'approved_by')
+                            : columns}
                         dataSource={applications}
                         rowKey="id"
                         loading={loading}

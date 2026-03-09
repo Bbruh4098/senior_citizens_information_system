@@ -25,10 +25,18 @@ class DashboardController extends Controller
             $seniorsQuery->whereIn('barangay_id', $barangayIds);
         }
 
+        // Total Registered Senior Citizens
+        $totalSeniors = (clone $seniorsQuery)->count();
+
         // Registered Active Senior Citizens
         $activeSeniors = (clone $seniorsQuery)
             ->where('is_active', true)
             ->where('is_deceased', false)
+            ->count();
+
+        // Deceased Senior Citizens
+        $deceasedSeniors = (clone $seniorsQuery)
+            ->where('is_deceased', true)
             ->count();
 
         // Pending Applications - combine applications for_verification + pre-registrations pending
@@ -83,7 +91,9 @@ class DashboardController extends Controller
             'success' => true,
             'data' => [
                 'stats' => [
+                    'total_seniors' => $totalSeniors,
                     'active_seniors' => $activeSeniors,
+                    'deceased_seniors' => $deceasedSeniors,
                     'pending_applications' => $pendingApplications,
                     'id_claimable' => $idClaimable,
                     'released_ids' => $releasedIds,

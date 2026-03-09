@@ -13,6 +13,7 @@ import {
     PlusOutlined,
     DeleteOutlined,
     SafetyCertificateOutlined,
+    TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { publicApi } from '../../services/api';
@@ -34,6 +35,8 @@ const Apply = () => {
     const [calculatedAge, setCalculatedAge] = useState(null);
     const [familyMembers, setFamilyMembers] = useState([]);
     const [privacyAgreed, setPrivacyAgreed] = useState(false);
+    const [registrationType, setRegistrationType] = useState(null); // 'self' or 'assisted'
+    const [showRelOther, setShowRelOther] = useState(false); // toggle inline 'Other' input for relationship
 
     // Status check state
     const [checkMode, setCheckMode] = useState(false);
@@ -90,9 +93,10 @@ const Apply = () => {
     ];
 
     const steps = [
-        { title: 'Personal Info', icon: <UserOutlined /> },
-        { title: 'Family Composition', icon: <UsergroupAddOutlined /> },
-        { title: 'Association', icon: <ApartmentOutlined /> },
+        { title: 'Type', icon: <TeamOutlined /> },
+        { title: 'Info', icon: <UserOutlined /> },
+        { title: 'Family', icon: <UsergroupAddOutlined /> },
+        { title: 'Sectors', icon: <ApartmentOutlined /> },
         { title: 'Review', icon: <FileTextOutlined /> },
     ];
 
@@ -169,9 +173,29 @@ const Apply = () => {
     };
 
     const handleNext = async () => {
-        // Block Step 1 if privacy not agreed
-        if (currentStep === 0 && !privacyAgreed) {
-            message.warning('Please read and agree to the Data Privacy Notice before proceeding.');
+        // Block Step 0 if no registration type or privacy not agreed
+        if (currentStep === 0) {
+            if (!registrationType) {
+                message.warning('Please select who is filling out this form.');
+                return;
+            }
+            if (!privacyAgreed) {
+                message.warning('Please read and agree to the Data Privacy Notice before proceeding.');
+                return;
+            }
+            // If assisted, validate assistant fields from form
+            if (registrationType === 'assisted') {
+                try {
+                    const fieldsToValidate = ['assistant_first_name', 'assistant_last_name', 'assistant_relationship', 'assistant_contact'];
+                    await form.validateFields(fieldsToValidate);
+                } catch {
+                    message.warning('Please fill in all assistant information.');
+                    return;
+                }
+            }
+            const values = form.getFieldsValue();
+            setFormData({ ...formData, ...values, registration_type: registrationType });
+            setCurrentStep(currentStep + 1);
             return;
         }
         try {
@@ -182,7 +206,7 @@ const Apply = () => {
             setFormData({ ...formData, ...definedValues });
 
             // Validate family member required fields
-            if (currentStep === 1 && familyMembers.length > 0) {
+            if (currentStep === 2 && familyMembers.length > 0) {
                 const invalidMembers = familyMembers.filter(
                     m => !m.first_name?.trim() || !m.last_name?.trim() || !m.relationship?.trim() || m.relationship === '__other__'
                 );
@@ -246,6 +270,15 @@ const Apply = () => {
                 // Associations
                 target_sectors: formData.target_sectors || [],
                 sub_categories: formData.sub_categories || [],
+
+                // Registration type & assistant info
+                registration_type: registrationType,
+                assistant_first_name: registrationType === 'assisted' ? formData.assistant_first_name : null,
+                assistant_middle_name: registrationType === 'assisted' ? (formData.assistant_middle_name || null) : null,
+                assistant_last_name: registrationType === 'assisted' ? formData.assistant_last_name : null,
+                assistant_extension: registrationType === 'assisted' ? (formData.assistant_extension || null) : null,
+                assistant_relationship: registrationType === 'assisted' ? formData.assistant_relationship : null,
+                assistant_contact: registrationType === 'assisted' ? formData.assistant_contact : null,
             };
 
             const response = await publicApi.apply(submitData);
@@ -462,6 +495,8 @@ const Apply = () => {
                             current={currentStep}
                             items={steps.map(s => ({ title: s.title, icon: s.icon }))}
                             style={{ marginBottom: 40 }}
+                            size="small"
+                            responsive={false}
                         />
 
                         <Form
@@ -470,8 +505,209 @@ const Apply = () => {
                             initialValues={formData}
                             preserve={true}
                         >
-                            {/* Step 1: Personal Information */}
+                            {/* Step 0: Registration Type */}
                             {currentStep === 0 && (
+                                <div>
+                                    <Title level={4} style={{ color: '#1890ff', marginBottom: 8 }}>
+                                        Who is filling out this form?
+                                    </Title>
+                                    <Paragraph type="secondary" style={{ marginBottom: 24 }}>
+                                        Please select who is completing this pre-registration form.
+                                    </Paragraph>
+
+                                    <Row gutter={16} style={{ marginBottom: 24 }}>
+                                        <Col xs={24} sm={12}>
+                                            <Card
+                                                hoverable
+                                                onClick={() => setRegistrationType('self')}
+                                                style={{
+                                                    borderRadius: 12,
+                                                    border: registrationType === 'self' ? '2px solid #4338ca' : '2px solid #e5e7eb',
+                                                    background: registrationType === 'self' ? '#eef2ff' : '#fff',
+                                                    textAlign: 'center',
+                                                    padding: '16px 12px',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                <UserOutlined style={{ fontSize: 36, color: registrationType === 'self' ? '#4338ca' : '#9ca3af', marginBottom: 12 }} />
+                                                <Title level={5} style={{ margin: 0, color: registrationType === 'self' ? '#4338ca' : undefined }}>
+                                                    I am the Senior Citizen
+                                                </Title>
+                                                <Text type="secondary" style={{ fontSize: 13 }}>I am registering myself</Text>
+                                            </Card>
+                                        </Col>
+                                        <Col xs={24} sm={12}>
+                                            <Card
+                                                hoverable
+                                                onClick={() => setRegistrationType('assisted')}
+                                                style={{
+                                                    borderRadius: 12,
+                                                    border: registrationType === 'assisted' ? '2px solid #4338ca' : '2px solid #e5e7eb',
+                                                    background: registrationType === 'assisted' ? '#eef2ff' : '#fff',
+                                                    textAlign: 'center',
+                                                    padding: '16px 12px',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                <TeamOutlined style={{ fontSize: 36, color: registrationType === 'assisted' ? '#4338ca' : '#9ca3af', marginBottom: 12 }} />
+                                                <Title level={5} style={{ margin: 0, color: registrationType === 'assisted' ? '#4338ca' : undefined }}>
+                                                    I am assisting a Senior
+                                                </Title>
+                                                <Text type="secondary" style={{ fontSize: 13 }}>Family member, caregiver, etc.</Text>
+                                            </Card>
+                                        </Col>
+                                    </Row>
+
+                                    {registrationType === 'assisted' && (
+                                        <Card style={{ background: '#f9fafb', borderRadius: 12, marginBottom: 24 }}>
+                                            <Title level={5} style={{ color: '#4338ca', marginBottom: 16 }}>
+                                                Assistant Information
+                                            </Title>
+                                            <Row gutter={16}>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item
+                                                        name="assistant_first_name"
+                                                        label={<span>First Name <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[{ required: true, message: 'First name is required' }]}
+                                                    >
+                                                        <Input placeholder="First name" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item name="assistant_middle_name" label="Middle Name">
+                                                        <Input placeholder="Middle name (optional)" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item
+                                                        name="assistant_last_name"
+                                                        label={<span>Last Name <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[{ required: true, message: 'Last name is required' }]}
+                                                    >
+                                                        <Input placeholder="Last name" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                            <Row gutter={16}>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item name="assistant_extension" label="Extension">
+                                                        <Input placeholder="e.g. Jr., Sr., III" size="large" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item
+                                                        name="assistant_relationship"
+                                                        label={<span>Relationship to Senior <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[{ required: true, message: 'Relationship is required' }]}
+                                                    >
+                                                        {showRelOther ? (
+                                                            <Input
+                                                                placeholder="Type relationship"
+                                                                size="large"
+                                                                addonAfter={
+                                                                    <a onClick={() => {
+                                                                        setShowRelOther(false);
+                                                                        form.setFieldsValue({ assistant_relationship: undefined });
+                                                                    }}
+                                                                        style={{ fontSize: 12 }}
+                                                                    >Back</a>
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <Select
+                                                                placeholder="Select relationship"
+                                                                size="large"
+                                                                onChange={(val) => {
+                                                                    if (val === '__other__') {
+                                                                        setShowRelOther(true);
+                                                                        form.setFieldsValue({ assistant_relationship: '' });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Option value="Son">Son</Option>
+                                                                <Option value="Daughter">Daughter</Option>
+                                                                <Option value="Grandchild">Grandchild</Option>
+                                                                <Option value="Spouse">Spouse</Option>
+                                                                <Option value="Nephew/Niece">Nephew/Niece</Option>
+                                                                <Option value="Caregiver">Caregiver</Option>
+                                                                <Option value="Social Worker">Social Worker</Option>
+                                                                <Option value="Barangay Official">Barangay Official</Option>
+                                                                <Option value="__other__">Other (specify)</Option>
+                                                            </Select>
+                                                        )}
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col xs={24} sm={8}>
+                                                    <Form.Item
+                                                        name="assistant_contact"
+                                                        label={<span>Contact Number <span style={{ color: '#fa8c16' }}>*</span></span>}
+                                                        rules={[
+                                                            { required: true, message: 'Contact number is required' },
+                                                            { pattern: /^09\d{9}$/, message: 'Must be a valid PH number (09XXXXXXXXX)' },
+                                                        ]}
+                                                    >
+                                                        <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
+                                        </Card>
+                                    )}
+
+                                    {/* Data Privacy Notice */}
+                                    <Card
+                                        style={{
+                                            background: '#f0f5ff',
+                                            border: '1px solid #adc6ff',
+                                            borderRadius: 12,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                                            <SafetyCertificateOutlined style={{ fontSize: 20, color: '#1d39c4' }} />
+                                            <Title level={5} style={{ margin: 0, color: '#1d39c4' }}>Data Privacy Notice</Title>
+                                        </div>
+                                        <div style={{
+                                            background: 'white',
+                                            borderRadius: 8,
+                                            padding: '12px 16px',
+                                            marginBottom: 12,
+                                            maxHeight: 300,
+                                            overflowY: 'auto',
+                                            fontSize: 13,
+                                            lineHeight: 1.7,
+                                            color: '#444',
+                                            border: '1px solid #e8e8e8',
+                                        }}>
+                                            <p style={{ marginBottom: 8 }}>
+                                                In compliance with <strong>Republic Act No. 10173</strong>, also known as the
+                                                <strong> Data Privacy Act of 2012</strong>, the Office for Senior Citizens Affairs (OSCA)
+                                                - Zamboanga City commits to protecting and respecting your personal data.
+                                            </p>
+                                            <p style={{ marginBottom: 8 }}>
+                                                By proceeding with this application, you acknowledge and consent to the following:
+                                            </p>
+                                            <ul style={{ paddingLeft: 20, marginBottom: 8 }}>
+                                                <li style={{ marginBottom: 4 }}>The personal information you provide, including but not limited to your name, birthdate, address, contact details, and family composition, will be <strong>collected, recorded, stored, processed, and used</strong> by OSCA for the purpose of processing your Senior Citizen ID application and providing government services and benefits.</li>
+                                                <li style={{ marginBottom: 4 }}>Your data may be <strong>shared with authorized government agencies</strong> (e.g., DSWD, PhilHealth, LGU offices) strictly for the purpose of delivering senior citizen benefits and services as mandated by <strong>Republic Act No. 9994</strong> (Expanded Senior Citizens Act of 2010).</li>
+                                                <li style={{ marginBottom: 4 }}>OSCA will implement <strong>reasonable and appropriate security measures</strong> to protect your personal data against unauthorized access, disclosure, or misuse.</li>
+                                                <li style={{ marginBottom: 4 }}>You have the right to <strong>access, correct, and request deletion</strong> of your personal data by contacting the OSCA Main Office.</li>
+                                            </ul>
+                                            <p style={{ margin: 0, fontStyle: 'italic', color: '#666' }}>
+                                                For concerns regarding your personal data, you may contact the OSCA Data Protection Officer at the City Hall, Zamboanga City.
+                                            </p>
+                                        </div>
+                                        <Checkbox
+                                            checked={privacyAgreed}
+                                            onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                                            style={{ fontSize: 14 }}
+                                        >
+                                            <Text strong>I have read, understood, and agree to the Data Privacy Notice above.</Text>
+                                        </Checkbox>
+                                    </Card>
+                                </div>
+                            )}
+
+                            {/* Step 1: Personal Information */}
+                            {currentStep === 1 && (
                                 <div>
                                     <Title level={4} style={{ color: '#1890ff', marginBottom: 16 }}>
                                         Personal Na Impormasyon
@@ -488,7 +724,7 @@ const Apply = () => {
                                             </Form.Item>
                                         </Col>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="middle_name" label="Middle Name/Middle Initial">
+                                            <Form.Item name="middle_name" label="Middle Name">
                                                 <Input placeholder="Enter middle name" size="large" />
                                             </Form.Item>
                                         </Col>
@@ -655,17 +891,6 @@ const Apply = () => {
 
                                     <Row gutter={16}>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="educational_attainment_id" label="Educational Attainment">
-                                                <Select placeholder="Select Educational Attainment" size="large" allowClear>
-                                                    {educationalAttainments.map((ea) => (
-                                                        <Option key={ea.id} value={ea.id}>
-                                                            {ea.name}
-                                                        </Option>
-                                                    ))}
-                                                </Select>
-                                            </Form.Item>
-                                        </Col>
-                                        <Col xs={24} sm={12}>
                                             <Form.Item
                                                 name="mobile_number"
                                                 label={<span>Mobile Number <span style={{ color: '#fa8c16' }}>*</span></span>}
@@ -677,21 +902,43 @@ const Apply = () => {
                                                 <Input placeholder="09XX-XXX-XXXX" size="large" maxLength={11} />
                                             </Form.Item>
                                         </Col>
-                                    </Row>
-
-                                    <Row gutter={16}>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="telephone_number" label="Telephone Number">
                                                 <Input placeholder="(062) XXX-XXXX" size="large" />
                                             </Form.Item>
                                         </Col>
+                                    </Row>
+
+                                    <Row gutter={16}>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="email" label="Email">
+                                            <Form.Item
+                                                name="email"
+                                                label="Email"
+                                                rules={[
+                                                    { type: 'email', message: 'Please enter a valid email address' },
+                                                ]}
+                                            >
                                                 <Input placeholder="email@example.com" size="large" />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item name="educational_attainment_id" label="Educational Attainment">
+                                                <Select placeholder="Select Educational Attainment" size="large" allowClear>
+                                                    {educationalAttainments.map((ea) => (
+                                                        <Option key={ea.id} value={ea.id}>
+                                                            {ea.name}
+                                                        </Option>
+                                                    ))}
+                                                </Select>
                                             </Form.Item>
                                         </Col>
                                     </Row>
                                     <Row gutter={16}>
+                                        <Col xs={24} sm={12}>
+                                            <Form.Item name="occupation" label="Occupation">
+                                                <Input placeholder="Current or previous occupation" size="large" />
+                                            </Form.Item>
+                                        </Col>
                                         <Col xs={24} sm={12}>
                                             <Form.Item name="monthly_salary" label="Monthly Salary">
                                                 <InputNumber
@@ -709,73 +956,16 @@ const Apply = () => {
 
                                     <Row gutter={16}>
                                         <Col xs={24} sm={12}>
-                                            <Form.Item name="occupation" label="Occupation">
-                                                <Input placeholder="Current or previous occupation" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col xs={24} sm={12}>
                                             <Form.Item name="other_skills" label="Other Skills">
                                                 <Input placeholder="Additional skills" size="large" />
                                             </Form.Item>
                                         </Col>
                                     </Row>
-
-                                    {/* Data Privacy Notice */}
-                                    <Divider />
-                                    <Card
-                                        style={{
-                                            background: '#f0f5ff',
-                                            border: '1px solid #adc6ff',
-                                            borderRadius: 12,
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                                            <SafetyCertificateOutlined style={{ fontSize: 20, color: '#1d39c4' }} />
-                                            <Title level={5} style={{ margin: 0, color: '#1d39c4' }}>Data Privacy Notice</Title>
-                                        </div>
-                                        <div style={{
-                                            background: 'white',
-                                            borderRadius: 8,
-                                            padding: '12px 16px',
-                                            marginBottom: 12,
-                                            maxHeight: 160,
-                                            overflowY: 'auto',
-                                            fontSize: 13,
-                                            lineHeight: 1.7,
-                                            color: '#444',
-                                            border: '1px solid #e8e8e8',
-                                        }}>
-                                            <p style={{ marginBottom: 8 }}>
-                                                In compliance with <strong>Republic Act No. 10173</strong>, also known as the
-                                                <strong> Data Privacy Act of 2012</strong>, the Office for Senior Citizens Affairs (OSCA)
-                                                - Zamboanga City commits to protecting and respecting your personal data.
-                                            </p>
-                                            <p style={{ marginBottom: 8 }}>
-                                                By proceeding with this application, you acknowledge and consent to the following:
-                                            </p>
-                                            <ul style={{ paddingLeft: 20, marginBottom: 8 }}>
-                                                <li style={{ marginBottom: 4 }}>The personal information you provide, including but not limited to your name, birthdate, address, contact details, and family composition, will be <strong>collected, recorded, stored, processed, and used</strong> by OSCA for the purpose of processing your Senior Citizen ID application and providing government services and benefits.</li>
-                                                <li style={{ marginBottom: 4 }}>Your data may be <strong>shared with authorized government agencies</strong> (e.g., DSWD, PhilHealth, LGU offices) strictly for the purpose of delivering senior citizen benefits and services as mandated by <strong>Republic Act No. 9994</strong> (Expanded Senior Citizens Act of 2010).</li>
-                                                <li style={{ marginBottom: 4 }}>OSCA will implement <strong>reasonable and appropriate security measures</strong> to protect your personal data against unauthorized access, disclosure, or misuse.</li>
-                                                <li style={{ marginBottom: 4 }}>You have the right to <strong>access, correct, and request deletion</strong> of your personal data by contacting the OSCA Main Office.</li>
-                                            </ul>
-                                            <p style={{ margin: 0, fontStyle: 'italic', color: '#666' }}>
-                                                For concerns regarding your personal data, you may contact the OSCA Data Protection Officer at the City Hall, Zamboanga City.
-                                            </p>
-                                        </div>
-                                        <Checkbox
-                                            checked={privacyAgreed}
-                                            onChange={(e) => setPrivacyAgreed(e.target.checked)}
-                                            style={{ fontSize: 14 }}
-                                        >
-                                            <Text strong>I have read, understood, and agree to the Data Privacy Notice above.</Text>
-                                        </Checkbox>
-                                    </Card>
                                 </div>
                             )}
 
                             {/* Step 2: Family Composition */}
-                            {currentStep === 1 && (
+                            {currentStep === 2 && (
                                 <div>
                                     <Title level={4} style={{ color: '#1890ff', marginBottom: 16 }}>
                                         Family Composition (Optional)
@@ -957,7 +1147,7 @@ const Apply = () => {
                             )}
 
                             {/* Step 3: Association / Target Sectors */}
-                            {currentStep === 2 && (
+                            {currentStep === 3 && (
                                 <div>
                                     <Title level={4} style={{ color: '#1890ff', marginBottom: 16 }}>
                                         Association / Target Sectors (Optional)
@@ -1002,9 +1192,37 @@ const Apply = () => {
                             )}
 
                             {/* Step 4: Review */}
-                            {currentStep === 3 && (
+                            {currentStep === 4 && (
                                 <div>
                                     <Title level={4} style={{ marginBottom: 24 }}>Review Your Information</Title>
+
+                                    {/* Registration Type + Assistant Info */}
+                                    <Card style={{ background: '#f9fafb', borderRadius: 12, marginBottom: 16 }}>
+                                        <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Registration Type</Title>
+                                        <Row gutter={[16, 8]}>
+                                            <Col xs={24}>
+                                                <Text type="secondary">Filled Out By</Text>
+                                                <div><Text strong>{registrationType === 'self' ? 'Self (Senior Citizen)' : 'Assisted by someone'}</Text></div>
+                                            </Col>
+                                            {registrationType === 'assisted' && (
+                                                <>
+                                                    <Col xs={24}>
+                                                        <Text type="secondary">Assistant Name</Text>
+                                                        <div><Text strong>{`${formData.assistant_first_name || ''} ${formData.assistant_middle_name || ''} ${formData.assistant_last_name || ''} ${formData.assistant_extension || ''}`.trim() || '-'}</Text></div>
+                                                    </Col>
+                                                    <Col xs={12}>
+                                                        <Text type="secondary">Relationship</Text>
+                                                        <div><Text strong>{formData.assistant_relationship || '-'}</Text></div>
+                                                    </Col>
+                                                    <Col xs={12}>
+                                                        <Text type="secondary">Contact Number</Text>
+                                                        <div><Text strong>{formData.assistant_contact || '-'}</Text></div>
+                                                    </Col>
+                                                </>
+                                            )}
+                                        </Row>
+                                    </Card>
+
                                     <Card style={{ background: '#f9fafb', borderRadius: 12, marginBottom: 24 }}>
                                         <Title level={5} style={{ color: '#1890ff', marginBottom: 12 }}>Personal Information</Title>
                                         <Row gutter={[16, 8]}>
@@ -1161,8 +1379,8 @@ const Apply = () => {
                                         type="primary"
                                         size="large"
                                         onClick={handleNext}
-                                        disabled={currentStep === 0 && !privacyAgreed}
-                                        style={{ background: (currentStep === 0 && !privacyAgreed) ? undefined : '#4338ca', borderRadius: 8 }}
+                                        disabled={currentStep === 0 && (!registrationType || !privacyAgreed)}
+                                        style={{ background: (currentStep === 0 && (!registrationType || !privacyAgreed)) ? undefined : '#4338ca', borderRadius: 8 }}
                                     >
                                         Next <ArrowRightOutlined />
                                     </Button>

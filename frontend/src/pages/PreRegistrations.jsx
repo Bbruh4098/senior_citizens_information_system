@@ -357,6 +357,27 @@ const PreRegistrations = () => {
                             </Text>
                             <div style={{ marginTop: 8 }}>{getStatusTag(detailModal.item.status)}</div>
                         </div>
+                        <Divider>Registration Type</Divider>
+                        <Descriptions column={2} size="small">
+                            <Descriptions.Item label="Filled Out By">
+                                {detailModal.item.applicant_data?.registration_type === 'assisted'
+                                    ? <Tag color="blue">Assisted</Tag>
+                                    : <Tag color="green">Self</Tag>}
+                            </Descriptions.Item>
+                            {detailModal.item.applicant_data?.assistant_info && (
+                                <>
+                                    <Descriptions.Item label="Assistant Name">
+                                        {`${detailModal.item.applicant_data.assistant_info.first_name || ''} ${detailModal.item.applicant_data.assistant_info.middle_name || ''} ${detailModal.item.applicant_data.assistant_info.last_name || ''} ${detailModal.item.applicant_data.assistant_info.extension || ''}`.trim() || '-'}
+                                    </Descriptions.Item>
+                                    <Descriptions.Item label="Relationship">
+                                        {detailModal.item.applicant_data.assistant_info.relationship || '-'}
+                                    </Descriptions.Item>
+                                    <Descriptions.Item label="Assistant Contact">
+                                        {detailModal.item.applicant_data.assistant_info.contact || '-'}
+                                    </Descriptions.Item>
+                                </>
+                            )}
+                        </Descriptions>
                         <Divider>Applicant Information</Divider>
                         <Descriptions column={2} size="small">
                             <Descriptions.Item label="Name" span={2}>

@@ -9,7 +9,7 @@ import {
     EnvironmentOutlined,
 } from '@ant-design/icons';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { dashboardApi } from '../services/api';
+import { dashboardApi, benefitsApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
@@ -21,7 +21,9 @@ const Dashboard = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
+        total_seniors: 0,
         active_seniors: 0,
+        deceased_seniors: 0,
         pending_applications: 0,
         id_claimable: 0,
         released_ids: 0,
@@ -29,6 +31,10 @@ const Dashboard = () => {
     const [events, setEvents] = useState([]);
     const [ageData, setAgeData] = useState([]);
     const [genderData, setGenderData] = useState([]);
+    const [barangayData, setBarangayData] = useState([]);
+    const [assistanceData, setAssistanceData] = useState([]);
+
+    const currentYear = new Date().getFullYear();
 
     useEffect(() => {
         fetchDashboardData();
@@ -37,17 +43,25 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const [statsRes, eventsRes, ageRes, genderRes] = await Promise.all([
+            const [statsRes, eventsRes, ageRes, genderRes, heatmapRes, assistanceRes] = await Promise.all([
                 dashboardApi.getStats(),
                 dashboardApi.getUpcomingEvents(),
                 dashboardApi.getAgeDistribution(),
                 dashboardApi.getGenderDistribution(),
+                dashboardApi.getHeatmapData(),
+                benefitsApi.getDistribution({ year: currentYear }),
             ]);
 
-            setStats(statsRes.data.data.stats);
+            const apiStats = statsRes.data.data.stats || {};
+            setStats(prev => ({
+                ...prev,
+                ...apiStats,
+            }));
             setEvents(eventsRes.data.data.events);
             setAgeData(ageRes.data.data.distribution);
             setGenderData(genderRes.data.data.distribution);
+            setBarangayData(heatmapRes.data.data.distribution || []);
+            setAssistanceData(assistanceRes.data.data.distribution || []);
         } catch (error) {
             console.error('Dashboard data fetch error:', error);
         } finally {
@@ -85,6 +99,27 @@ const Dashboard = () => {
             iconBg: '#a31a13',
         },
     ];
+
+    const statusData = [
+        { name: 'Active', value: stats.active_seniors || 0 },
+        { name: 'Deceased', value: stats.deceased_seniors || 0 },
+    ];
+
+    const hasStatusData = statusData.some(item => item.value > 0);
+
+    const sortedAgeData = [...ageData].sort((a, b) => {
+        const order = ['60-69', '70-79', '80-89', '90-99', '100+'];
+        return order.indexOf(a.age_group) - order.indexOf(b.age_group);
+    });
+
+    const topBarangays = barangayData
+        .slice()
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10)
+        .map(b => ({
+            name: b.name,
+            total: b.total,
+        }));
 
     const eventColumns = [
         {
@@ -164,6 +199,11 @@ const Dashboard = () => {
                                     <div style={{ fontSize: 28, fontWeight: 600, color: '#fff', marginTop: 8 }}>
                                         {stat.value.toLocaleString()}
                                     </div>
+                                    {stat.title === 'Active Senior Citizens' && (
+                                        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>
+                                            of {stats.total_seniors.toLocaleString()} registered
+                                        </Text>
+                                    )}
                                 </div>
                                 <div style={{
                                     width: 48,
@@ -184,6 +224,64 @@ const Dashboard = () => {
                 ))}
             </Row>
 
+            {/* Barangay Breakdown */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24}>
+                    <Card
+                        title="Top Barangays by Registered Seniors"
+                        style={{ borderRadius: 12 }}
+                        bodyStyle={{ height: 320 }}
+                    >
+                        {topBarangays.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={topBarangays}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar dataKey="total" name="Registered Seniors" radius={[4, 4, 0, 0]}>
+                                        {topBarangays.map((entry, index) => (
+                                            <Cell
+                                                key={`brgy-cell-${entry.name}`}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
+                                        ))}
+                                    </Bar>
+                                    <Legend
+                                        align="right"
+                                        verticalAlign="top"
+                                        content={() => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, marginBottom: 4 }}>
+                                                {topBarangays.map((item, index) => (
+                                                    <span
+                                                        key={`brgy-legend-${item.name}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                                    >
+                                                        <span
+                                                            style={{
+                                                                width: 10,
+                                                                height: 10,
+                                                                borderRadius: 2,
+                                                                backgroundColor: COLORS[index % COLORS.length],
+                                                            }}
+                                                        />
+                                                        {item.name} ({item.total.toLocaleString()})
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                <Text type="secondary">No data available</Text>
+                            </div>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
             {/* Charts Row */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {/* Age Distribution */}
@@ -193,17 +291,45 @@ const Dashboard = () => {
                         style={{ borderRadius: 12 }}
                         bodyStyle={{ height: 300 }}
                     >
-                        {ageData.length > 0 ? (
+                        {sortedAgeData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={[...ageData].sort((a, b) => {
-                                    const order = ['60-69', '70-79', '80-89', '90-99', '100+'];
-                                    return order.indexOf(a.age_group) - order.indexOf(b.age_group);
-                                })}>
+                                <BarChart data={sortedAgeData}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="age_group" />
                                     <YAxis />
                                     <Tooltip />
-                                    <Bar dataKey="count" fill="#001427" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                        {sortedAgeData.map((entry, index) => (
+                                            <Cell
+                                                key={`age-cell-${index}`}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
+                                        ))}
+                                    </Bar>
+                                    <Legend
+                                        align="right"
+                                        verticalAlign="top"
+                                        content={() => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, marginBottom: 4 }}>
+                                                {sortedAgeData.map((item, index) => (
+                                                    <span
+                                                        key={`age-legend-${item.age_group}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                                    >
+                                                        <span
+                                                            style={{
+                                                                width: 10,
+                                                                height: 10,
+                                                                borderRadius: 2,
+                                                                backgroundColor: COLORS[index % COLORS.length],
+                                                            }}
+                                                        />
+                                                        {item.age_group} ({item.count.toLocaleString()})
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
@@ -239,8 +365,122 @@ const Dashboard = () => {
                                         ))}
                                     </Pie>
                                     <Tooltip />
-                                    <Legend />
+                                    <Legend
+                                        formatter={(value, entry) => {
+                                            const item = genderData.find(d => d.gender === value);
+                                            const count = item ? item.count : 0;
+                                            return `${value} (${count.toLocaleString()})`;
+                                        }}
+                                    />
                                 </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                <Text type="secondary">No data available</Text>
+                            </div>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Status & Assistance Row */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                {/* Active vs Deceased */}
+                <Col xs={24} lg={12}>
+                    <Card
+                        title="Active vs Deceased Seniors"
+                        style={{ borderRadius: 12 }}
+                        bodyStyle={{ height: 300 }}
+                    >
+                        {hasStatusData ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={statusData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={100}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                        {statusData.map((entry, index) => (
+                                            <Cell
+                                                key={`status-cell-${index}`}
+                                                fill={index === 0 ? '#52c41a' : '#bf0603'}
+                                            />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend
+                                        formatter={(value) => {
+                                            const item = statusData.find(s => s.name === value);
+                                            const count = item ? item.value : 0;
+                                            return `${value} (${count.toLocaleString()})`;
+                                        }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                <Text type="secondary">No data available</Text>
+                            </div>
+                        )}
+                    </Card>
+                </Col>
+
+                {/* Assistance Distribution */}
+                <Col xs={24} lg={12}>
+                    <Card
+                        title={`Assistance Distribution by Benefit Type (${currentYear})`}
+                        style={{ borderRadius: 12 }}
+                        bodyStyle={{ height: 300 }}
+                    >
+                        {assistanceData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={assistanceData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar
+                                        dataKey="total_claims"
+                                        name="Total Claims"
+                                        radius={[4, 4, 0, 0]}
+                                    >
+                                        {assistanceData.map((entry, index) => (
+                                            <Cell
+                                                key={`assist-cell-${entry.benefit_type_id || entry.name}`}
+                                                fill={COLORS[index % COLORS.length]}
+                                            />
+                                        ))}
+                                    </Bar>
+                                    <Legend
+                                        align="right"
+                                        verticalAlign="top"
+                                        content={() => (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, marginBottom: 4 }}>
+                                                {assistanceData.map((item, index) => (
+                                                    <span
+                                                        key={`assist-legend-${item.benefit_type_id || item.name}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                                    >
+                                                        <span
+                                                            style={{
+                                                                width: 10,
+                                                                height: 10,
+                                                                borderRadius: 2,
+                                                                backgroundColor: COLORS[index % COLORS.length],
+                                                            }}
+                                                        />
+                                                        {item.name} ({(item.total_claims || 0).toLocaleString()})
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    />
+                                </BarChart>
                             </ResponsiveContainer>
                         ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
