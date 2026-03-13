@@ -73,7 +73,7 @@ class IdPrintingController extends Controller
     {
         $request->validate([
             'senior_id' => 'required|integer|exists:senior_citizens,id',
-            'id_type' => 'required|in:new,renewal,replacement',
+            'id_type' => 'required|in:new,renewal,replace_lost,replace_damaged',
             'priority' => 'nullable|in:normal,urgent,express',
             'notes' => 'nullable|string|max:500',
         ]);
