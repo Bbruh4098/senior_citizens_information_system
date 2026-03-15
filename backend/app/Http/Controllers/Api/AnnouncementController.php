@@ -16,13 +16,7 @@ class AnnouncementController extends Controller
         $user = $request->user();
         $perPage = $request->get('per_page', 15);
         $query = Announcement::with(['type', 'barangay', 'createdBy']);
-
-        if (!$user->isMainAdmin()) {
-            $barangayIds = $user->getAccessibleBarangayIds();
-            $query->where(function ($q) use ($barangayIds) {
-                $q->whereNull('barangay_id')->orWhereIn('barangay_id', $barangayIds);
-            });
-        }
+        $query->where('created_by', $user->id);
 
         if ($request->has('is_published')) {
             $query->where('is_published', $request->boolean('is_published'));

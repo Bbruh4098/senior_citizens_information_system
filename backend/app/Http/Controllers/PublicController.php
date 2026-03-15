@@ -53,10 +53,17 @@ class PublicController extends Controller
      */
     public function announcements(Request $request): JsonResponse
     {
-        $query = Announcement::with(['type', 'media'])
+        $query = Announcement::with(['type', 'media', 'createdBy.barangay'])
             ->published()
             ->orderByDesc('published_date')
             ->orderByDesc('created_at');
+
+        // Optional barangay filter (by creator's assigned barangay)
+        if ($barangayId = $request->get('barangay_id')) {
+            $query->whereHas('createdBy', function ($q) use ($barangayId) {
+                $q->where('barangay_id', (int) $barangayId);
+            });
+        }
 
         // Optional type filter (by type code or name)
         if ($type = $request->get('type')) {
@@ -91,6 +98,8 @@ class PublicController extends Controller
                 'media' => $announcement->media,
                 'location' => $announcement->location,
                 'target_audience' => $announcement->target_audience,
+                'barangay_id' => $announcement->createdBy?->barangay_id,
+                'barangay_name' => $announcement->createdBy?->barangay?->name,
             ];
         });
 

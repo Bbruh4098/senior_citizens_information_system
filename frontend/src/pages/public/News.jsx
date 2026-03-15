@@ -30,9 +30,11 @@ const { Option } = Select;
 
 const News = () => {
   const [announcements, setAnnouncements] = useState([]);
+  const [barangays, setBarangays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [selectedBarangayId, setSelectedBarangayId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 9;
 
@@ -41,10 +43,22 @@ const News = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
+    const fetchBarangays = async () => {
+      try {
+        const response = await publicApi.getBarangays();
+        setBarangays(response.data?.data || []);
+      } catch (error) {
+        console.error("Failed to load barangays", error);
+      }
+    };
+
     const fetchAnnouncements = async () => {
       setLoading(true);
       try {
-        const response = await publicApi.getAnnouncements();
+        const params = selectedBarangayId
+          ? { barangay_id: selectedBarangayId }
+          : undefined;
+        const response = await publicApi.getAnnouncements(params);
         const apiData = response.data?.data || [];
 
         const mapped = apiData.map((item) => ({
@@ -58,6 +72,8 @@ const News = () => {
           location: item.location,
           media: item.media || [],
           target_audience: item.target_audience,
+          barangay_id: item.barangay_id,
+          barangay_name: item.barangay_name,
         }));
 
         setAnnouncements(mapped);
@@ -68,8 +84,9 @@ const News = () => {
       }
     };
 
+    fetchBarangays();
     fetchAnnouncements();
-  }, []);
+  }, [selectedBarangayId]);
 
   const typeColors = {
     event: { color: "#4338ca", bg: "#eef2ff" },
@@ -109,7 +126,7 @@ const News = () => {
     const cleanBaseUrl = baseUrl.replace(/\/$/, "");
 
     // 3. Combine them to match the working URL: /storage/uploads/...
-    // Note: Since your DB stores 'uploads/announcements/...', 
+    // Note: Since your DB stores 'uploads/announcements/...',
     // we just need to prefix it with /storage/
     return `${cleanBaseUrl}/storage/${filePath}`;
   };
@@ -159,6 +176,8 @@ const News = () => {
                   setFilter(v);
                   setCurrentPage(1);
                 }}
+                showSearch
+                optionFilterProp="children"
                 size="large"
                 style={{ width: "100%", borderRadius: 8 }}
               >
@@ -167,6 +186,27 @@ const News = () => {
                 <Option value="notice">Notices</Option>
                 <Option value="advisory">Advisories</Option>
                 <Option value="news">News</Option>
+              </Select>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                value={selectedBarangayId}
+                onChange={(v) => {
+                  setSelectedBarangayId(v ?? null);
+                  setCurrentPage(1);
+                }}
+                showSearch
+                optionFilterProp="children"
+                size="large"
+                style={{ width: "100%", borderRadius: 8 }}
+                placeholder="Filter by barangay"
+                allowClear
+              >
+                {barangays.map((barangay) => (
+                  <Option key={barangay.id} value={barangay.id}>
+                    {barangay.name}
+                  </Option>
+                ))}
               </Select>
             </Col>
             <Col xs={24} md={12} style={{ textAlign: "right" }}>
@@ -245,6 +285,11 @@ const News = () => {
                         >
                           {item.content}
                         </Paragraph>
+                        {item.barangay_name && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Barangay: {item.barangay_name}
+                          </Text>
+                        )}
                       </Card>
                     </Col>
                   );
