@@ -58,10 +58,19 @@ class PublicController extends Controller
             ->orderByDesc('published_date')
             ->orderByDesc('created_at');
 
-        // Optional barangay filter (by creator's assigned barangay)
+        // Optional barangay filter:
+        // - direct match for barangay accounts assigned to the selected barangay
+        // - include field office announcements when the selected barangay belongs to their branch
         if ($barangayId = $request->get('barangay_id')) {
+            $barangayId = (int) $barangayId;
             $query->whereHas('createdBy', function ($q) use ($barangayId) {
-                $q->where('barangay_id', (int) $barangayId);
+                $q->where('barangay_id', $barangayId)
+                    ->orWhere(function ($subQ) use ($barangayId) {
+                        $subQ->where('role_id', 2)
+                            ->whereHas('branch.barangays', function ($branchQ) use ($barangayId) {
+                                $branchQ->where('barangays.id', $barangayId);
+                            });
+                    });
             });
         }
 
