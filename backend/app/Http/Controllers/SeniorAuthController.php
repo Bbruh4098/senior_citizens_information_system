@@ -64,18 +64,24 @@ class SeniorAuthController extends Controller
         // Send OTP via SMS
         $smsResult = $smsService->sendOtp($request->phone_number, $otp);
 
-        if (!$smsResult['success']) {
-            return response()->json([
-                'message' => $smsResult['message'] ?? 'SMS service error',
-            ], 503);
+        // In demo mode or if SMS fails, still allow the flow but return the OTP
+        $isDemoMode = !$smsResult['success'];
+
+        $responseData = [
+            'message' => $isDemoMode
+                ? 'SMS not available. Use the OTP shown on screen.'
+                : 'OTP sent to your registered phone number',
+            'senior_id' => $senior->id,
+            'expires_in' => 600,
+            'sms_sent' => !$isDemoMode,
+        ];
+
+        // Include OTP in response when in demo mode
+        if ($isDemoMode) {
+            $responseData['demo_otp'] = $otp;
         }
 
-        return response()->json([
-            'message' => 'OTP sent to your registered phone number',
-            'senior_id' => $senior->id,
-            'expires_in' => 600, // 10 minutes
-            'sms_sent' => true,
-        ]);
+        return response()->json($responseData);
     }
 
     /**

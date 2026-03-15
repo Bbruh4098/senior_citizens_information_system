@@ -20,6 +20,7 @@ const SeniorLogin = () => {
     const [loading, setLoading] = useState(false);
     const [loginMode, setLoginMode] = useState('otp'); // 'otp' or 'pin'
     const [seniorId, setSeniorId] = useState(null);
+    const [devOtp, setDevOtp] = useState(null);
     const [needsPinSetup, setNeedsPinSetup] = useState(false);
 
     const [smsSent, setSmsSent] = useState(false);
@@ -48,7 +49,15 @@ const SeniorLogin = () => {
             setLastOtpValues(values);
             setStep(1);
             setResendCooldown(60);
-            message.success('OTP sent to your phone number via SMS');
+
+            // Demo mode: show OTP on screen if SMS wasn't actually sent
+            if (response.data.demo_otp) {
+                setDevOtp(response.data.demo_otp);
+                message.info('Demo Mode: OTP is displayed on screen');
+            } else {
+                setDevOtp(null);
+                message.success('OTP sent to your phone number via SMS');
+            }
         } catch (error) {
             const msg = error.response?.data?.message || 'Failed to send OTP';
             if (error.response?.status === 429) {
@@ -231,6 +240,29 @@ const SeniorLogin = () => {
                                     name="pin"
                                     label="Set Your 6-Digit PIN (for future logins)"
                                     rules={[{ required: true, len: 6, message: 'Set a 6-digit PIN' }]}
+                                >
+                                    <Input.Password
+                                        size="large"
+                                        maxLength={6}
+                                        placeholder="••••••"
+                                        style={{ borderRadius: 8, textAlign: 'center', letterSpacing: 8 }}
+                                    />
+                                </Form.Item>
+                                <Form.Item
+                                    name="confirm_pin"
+                                    label="Confirm PIN"
+                                    dependencies={['pin']}
+                                    rules={[
+                                        { required: true, len: 6, message: 'Please confirm your PIN' },
+                                        ({ getFieldValue }) => ({
+                                            validator(_, value) {
+                                                if (!value || getFieldValue('pin') === value) {
+                                                    return Promise.resolve();
+                                                }
+                                                return Promise.reject(new Error('PINs do not match'));
+                                            },
+                                        }),
+                                    ]}
                                 >
                                     <Input.Password
                                         size="large"
