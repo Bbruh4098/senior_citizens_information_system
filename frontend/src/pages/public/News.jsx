@@ -116,19 +116,29 @@ const News = () => {
 
   // Helper to get image URL
   // Helper to get image URL
-  const getImageUrl = (filePath) => {
-    if (!filePath) return "";
+  const getImageUrl = (mediaOrPath) => {
+    if (!mediaOrPath) return "";
 
-    // 1. Ensure the base URL is correct (e.g., http://localhost:8000)
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    if (typeof mediaOrPath === "object") {
+      if (mediaOrPath.url) return mediaOrPath.url;
+      mediaOrPath = mediaOrPath.file_path;
+    }
 
-    // 2. Clean the base URL of any trailing slashes
-    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
+    if (!mediaOrPath) return "";
+    if (/^https?:\/\//i.test(mediaOrPath)) return mediaOrPath;
 
-    // 3. Combine them to match the working URL: /storage/uploads/...
-    // Note: Since your DB stores 'uploads/announcements/...',
-    // we just need to prefix it with /storage/
-    return `${cleanBaseUrl}/storage/${filePath}`;
+    const baseUrl = (
+      import.meta.env.VITE_API_URL ||
+      window.location.origin ||
+      ""
+    ).replace(/\/$/, "");
+    const cleanPath = String(mediaOrPath).replace(/^\/+/, "");
+
+    if (cleanPath.startsWith("storage/")) {
+      return `${baseUrl}/${cleanPath}`;
+    }
+
+    return `${baseUrl}/storage/${cleanPath}`;
   };
 
   return (
@@ -248,7 +258,7 @@ const News = () => {
                           item.media?.length > 0 ? (
                             <img
                               alt="cover"
-                              src={getImageUrl(item.media[0].file_path)}
+                              src={getImageUrl(item.media[0])}
                               style={{ height: 200, objectFit: "cover" }}
                             />
                           ) : null
@@ -356,7 +366,7 @@ const News = () => {
                 <Image.PreviewGroup>
                   <Row gutter={[8, 8]} justify="center">
                     {selectedItem.media.map((file, index) => {
-                      const fileUrl = getImageUrl(file.file_path);
+                      const fileUrl = getImageUrl(file);
                       const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(
                         file.file_path,
                       );

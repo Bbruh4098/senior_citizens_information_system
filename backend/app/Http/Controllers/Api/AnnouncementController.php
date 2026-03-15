@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
 {
+    private function publicStorageUrl(Request $request, string $path): string
+    {
+        $baseUrl = rtrim($request->getSchemeAndHttpHost(), '/');
+        return $baseUrl . '/storage/' . ltrim($path, '/');
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -128,7 +134,7 @@ class AnnouncementController extends Controller
 
         return response()->json([
             'success' => true, 
-            'data' => array_merge($media->toArray(), ['url' => asset('storage/' . $path)])
+            'data' => array_merge($media->toArray(), ['url' => $this->publicStorageUrl($request, $path)])
         ]);
     }
 
@@ -153,10 +159,10 @@ class AnnouncementController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function mediaIndex($id)
+    public function mediaIndex(Request $request, $id)
     {
-        $media = AnnouncementMedia::where('announcement_id', $id)->get()->map(function($m) {
-            return array_merge($m->toArray(), ['url' => asset('storage/' . $m->file_path)]);
+        $media = AnnouncementMedia::where('announcement_id', $id)->get()->map(function($m) use ($request) {
+            return array_merge($m->toArray(), ['url' => $this->publicStorageUrl($request, $m->file_path)]);
         });
         return response()->json(['success' => true, 'data' => $media]);
     }

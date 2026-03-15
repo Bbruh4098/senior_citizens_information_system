@@ -53,6 +53,8 @@ class PublicController extends Controller
      */
     public function announcements(Request $request): JsonResponse
     {
+        $baseUrl = rtrim($request->getSchemeAndHttpHost(), '/');
+
         $query = Announcement::with(['type', 'media', 'createdBy.barangay'])
             ->published()
             ->orderByDesc('published_date')
@@ -90,9 +92,19 @@ class PublicController extends Controller
             });
         }
 
-        $announcements = $query->get()->map(function (Announcement $announcement) {
+        $announcements = $query->get()->map(function (Announcement $announcement) use ($baseUrl) {
             $eventDate = $announcement->event_date?->format('Y-m-d');
             $publishedDate = $announcement->published_date?->format('Y-m-d');
+            $media = $announcement->media->map(function ($item) use ($baseUrl) {
+                return [
+                    'id' => $item->id,
+                    'announcement_id' => $item->announcement_id,
+                    'file_path' => $item->file_path,
+                    'media_type' => $item->media_type,
+                    'uploaded_at' => $item->uploaded_at,
+                    'url' => $baseUrl . '/storage/' . ltrim($item->file_path, '/'),
+                ];
+            })->values();
 
             return [
                 'id' => $announcement->id,
@@ -104,7 +116,7 @@ class PublicController extends Controller
                 'date' => $eventDate ?? $publishedDate ?? $announcement->created_at?->format('Y-m-d'),
                 'event_date' => $eventDate,
                 'published_at' => $announcement->published_date?->toIso8601String(),
-                'media' => $announcement->media,
+                'media' => $media,
                 'location' => $announcement->location,
                 'target_audience' => $announcement->target_audience,
                 'barangay_id' => $announcement->createdBy?->barangay_id,

@@ -542,11 +542,29 @@ const AnnouncementsPreview = () => {
   };
 
   // Helper for image paths
-  const getImageUrl = (filePath) => {
-    if (!filePath) return "";
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
-    return `${cleanBaseUrl}/storage/${filePath}`;
+  const getImageUrl = (mediaOrPath) => {
+    if (!mediaOrPath) return "";
+
+    if (typeof mediaOrPath === "object") {
+      if (mediaOrPath.url) return mediaOrPath.url;
+      mediaOrPath = mediaOrPath.file_path;
+    }
+
+    if (!mediaOrPath) return "";
+    if (/^https?:\/\//i.test(mediaOrPath)) return mediaOrPath;
+
+    const baseUrl = (
+      import.meta.env.VITE_API_URL ||
+      window.location.origin ||
+      ""
+    ).replace(/\/$/, "");
+    const cleanPath = String(mediaOrPath).replace(/^\/+/, "");
+
+    if (cleanPath.startsWith("storage/")) {
+      return `${baseUrl}/${cleanPath}`;
+    }
+
+    return `${baseUrl}/storage/${cleanPath}`;
   };
 
   return (
@@ -607,7 +625,7 @@ const AnnouncementsPreview = () => {
                     item.media?.length > 0 ? (
                       <img
                         alt="cover"
-                        src={getImageUrl(item.media[0].file_path)}
+                        src={getImageUrl(item.media[0])}
                         style={{ height: 180, objectFit: "cover" }}
                       />
                     ) : null
@@ -700,7 +718,7 @@ const AnnouncementsPreview = () => {
                 <Image.PreviewGroup>
                   <Row gutter={[8, 8]} justify="center">
                     {selectedItem.media.map((file, index) => {
-                      const fileUrl = getImageUrl(file.file_path);
+                      const fileUrl = getImageUrl(file);
                       const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(
                         file.file_path,
                       );
