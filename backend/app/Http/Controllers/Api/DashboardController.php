@@ -222,39 +222,70 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('id');
 
-        // Base query conditions
-        $baseConditions = function ($q) use ($user, $barangayIds) {
-            $q->where('is_active', true)
-              ->where('is_deceased', false)
-              ->when(!$user->isMainAdmin(), function ($sq) use ($barangayIds) {
-                  $sq->whereIn('barangay_id', $barangayIds);
-              });
+        // Filter params
+        $status = $request->get('status', 'active');
+        $genderId = $request->get('gender_id');
+        $ageCategory = $request->get('age_category');
+
+        // Base conditions: status + access scope
+        $applyBase = function ($q) use ($user, $barangayIds, $status) {
+            if ($status === 'active') {
+                $q->where('is_active', true)->where('is_deceased', false);
+            } elseif ($status === 'deceased') {
+                $q->where('is_deceased', true);
+            }
+            // 'all' = no status filter
+            $q->when(!$user->isMainAdmin(), function ($sq) use ($barangayIds) {
+                $sq->whereIn('barangay_id', $barangayIds);
+            });
         };
 
-        // Total count per barangay
+        // Age category SQL clause
+        $applyAge = function ($q) use ($ageCategory) {
+            if ($ageCategory) {
+                switch ($ageCategory) {
+                    case 'age_60_69': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69'); break;
+                    case 'age_70_79': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79'); break;
+                    case 'age_80_89': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89'); break;
+                    case 'age_90_99': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99'); break;
+                    case 'centenarian': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100'); break;
+                }
+            }
+        };
+
+        // Filtered count per barangay (combo: gender + age)
+        $filteredCounts = DB::table('senior_citizens')
+            ->select('barangay_id', DB::raw('COUNT(*) as count'))
+            ->where($applyBase)
+            ->where($applyAge)
+            ->when($genderId, fn($q) => $q->where('gender_id', $genderId))
+            ->groupBy('barangay_id')
+            ->pluck('count', 'barangay_id');
+
+        // Total per barangay (base only, for popup)
         $totals = DB::table('senior_citizens')
             ->select('barangay_id', DB::raw('COUNT(*) as total'))
-            ->where($baseConditions)
+            ->where($applyBase)
             ->groupBy('barangay_id')
             ->pluck('total', 'barangay_id');
 
-        // Male count per barangay (gender_id = 1)
-        $males = DB::table('senior_citizens')
-            ->select('barangay_id', DB::raw('COUNT(*) as count'))
-            ->where($baseConditions)
-            ->where('gender_id', 1)
-            ->groupBy('barangay_id')
-            ->pluck('count', 'barangay_id');
+        // Dynamic gender counts for popup breakdown
+        $allGenders = DB::table('genders')
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')
+            ->get();
 
-        // Female count per barangay (gender_id = 2)
-        $females = DB::table('senior_citizens')
-            ->select('barangay_id', DB::raw('COUNT(*) as count'))
-            ->where($baseConditions)
-            ->where('gender_id', 2)
-            ->groupBy('barangay_id')
-            ->pluck('count', 'barangay_id');
+        $genderCounts = [];
+        foreach ($allGenders as $gender) {
+            $genderCounts[$gender->id] = DB::table('senior_citizens')
+                ->select('barangay_id', DB::raw('COUNT(*) as count'))
+                ->where($applyBase)
+                ->where('gender_id', $gender->id)
+                ->groupBy('barangay_id')
+                ->pluck('count', 'barangay_id');
+        }
 
-        // Age groups per barangay
+        // Age groups for popup breakdown
         $ageGroups = DB::table('senior_citizens')
             ->select(
                 'barangay_id',
@@ -264,37 +295,43 @@ class DashboardController extends Controller
                 DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99 THEN 1 ELSE 0 END) as age_90_99'),
                 DB::raw('SUM(CASE WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100 THEN 1 ELSE 0 END) as centenarian')
             )
-            ->where($baseConditions)
+            ->where($applyBase)
             ->groupBy('barangay_id')
             ->get()
             ->keyBy('barangay_id');
 
-        // Build distribution array
+        // Build distribution
         $distribution = [];
         foreach ($barangays as $id => $brgy) {
             $ages = $ageGroups->get($id);
-            $distribution[] = [
+            $entry = [
                 'barangay_id' => $id,
                 'name' => $brgy->name,
                 'district' => $brgy->district,
                 'total' => (int) ($totals->get($id, 0)),
-                'male' => (int) ($males->get($id, 0)),
-                'female' => (int) ($females->get($id, 0)),
+                'count' => (int) ($filteredCounts->get($id, 0)),
                 'age_60_69' => (int) ($ages->age_60_69 ?? 0),
                 'age_70_79' => (int) ($ages->age_70_79 ?? 0),
                 'age_80_89' => (int) ($ages->age_80_89 ?? 0),
                 'age_90_99' => (int) ($ages->age_90_99 ?? 0),
                 'centenarian' => (int) ($ages->centenarian ?? 0),
             ];
+            foreach ($allGenders as $gender) {
+                $entry['gender_' . $gender->id] = (int) ($genderCounts[$gender->id]->get($id, 0));
+            }
+            $distribution[] = $entry;
         }
 
-        // Compute summary totals
+        // Gender metadata
+        $gendersMeta = $allGenders->map(fn($g) => [
+            'id' => $g->id, 'name' => $g->name, 'key' => 'gender_' . $g->id,
+        ])->values();
+
+        // Summary
         $summaryTotals = [
             'total' => array_sum(array_column($distribution, 'total')),
-            'male' => array_sum(array_column($distribution, 'male')),
-            'female' => array_sum(array_column($distribution, 'female')),
-            'centenarian' => array_sum(array_column($distribution, 'centenarian')),
-            'max_count' => max(array_column($distribution, 'total') ?: [0]),
+            'filtered' => array_sum(array_column($distribution, 'count')),
+            'max_count' => max(array_column($distribution, 'count') ?: [0]),
         ];
 
         return response()->json([
@@ -302,6 +339,7 @@ class DashboardController extends Controller
             'data' => [
                 'distribution' => $distribution,
                 'totals' => $summaryTotals,
+                'genders' => $gendersMeta,
             ],
         ]);
     }

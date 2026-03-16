@@ -122,7 +122,7 @@ const Login = () => {
                     }}>
                         <SafetyCertificateOutlined style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }} />
                         <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-                            Secure Government Portal
+                            Made by Starcode Corporation.
                         </Text>
                     </div>
                 </div>

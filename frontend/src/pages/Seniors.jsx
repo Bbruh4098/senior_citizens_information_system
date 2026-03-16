@@ -55,6 +55,7 @@ const Seniors = () => {
         search: '',
         status: 'active',
         barangay_id: null,
+        gender_id: null,
         age_categories: [], // For age filter: octogenarians, nonagenarians, centenarians
     });
     const [stats, setStats] = useState({
@@ -65,6 +66,7 @@ const Seniors = () => {
     });
     const [profileModal, setProfileModal] = useState({ visible: false, seniorId: null });
     const [barangays, setBarangays] = useState([]);
+    const [genders, setGenders] = useState([]);
 
     // Claim History Modal State
     const [claimHistoryModal, setClaimHistoryModal] = useState({ visible: false, loading: false, data: null });
@@ -76,6 +78,7 @@ const Seniors = () => {
         fetchSeniors();
         fetchStatistics();
         loadBarangays();
+        loadGenders();
     }, []);
 
     const loadBarangays = async () => {
@@ -84,6 +87,15 @@ const Seniors = () => {
             setBarangays(response.data.data || []);
         } catch (error) {
             console.error('Failed to load barangays:', error);
+        }
+    };
+
+    const loadGenders = async () => {
+        try {
+            const response = await registrationApi.getLookupOptions();
+            setGenders(response.data.data?.genders || []);
+        } catch (error) {
+            console.error('Failed to load genders:', error);
         }
     };
 
@@ -97,6 +109,7 @@ const Seniors = () => {
                 search: currentFilters.search || undefined,
                 status: currentFilters.status || undefined,
                 barangay_id: currentFilters.barangay_id || undefined,
+                gender_id: currentFilters.gender_id || undefined,
                 age_categories: currentFilters.age_categories.length > 0 ? currentFilters.age_categories.join(',') : undefined,
             };
             const response = await seniorsApi.getList(params);
@@ -153,6 +166,7 @@ const Seniors = () => {
                 search: filters.search || undefined,
                 status: filters.status || undefined,
                 barangay_id: filters.barangay_id || undefined,
+                gender_id: filters.gender_id || undefined,
                 age_categories: filters.age_categories.length > 0 ? filters.age_categories.join(',') : undefined,
             };
             const response = await seniorsApi.export(params);
@@ -221,9 +235,9 @@ const Seniors = () => {
                 <Space>
                     <Avatar
                         style={{
-                            backgroundColor: record.gender_id === 1 ? '#1890ff' : '#eb2f96'
+                            backgroundColor: record.gender_id === 1 ? '#1890ff' : record.gender_id === 2 ? '#eb2f96' : '#722ed1'
                         }}
-                        icon={record.gender_id === 1 ? <ManOutlined /> : <WomanOutlined />}
+                        icon={record.gender_id === 1 ? <ManOutlined /> : record.gender_id === 2 ? <WomanOutlined /> : <UserOutlined />}
                     />
                     <div>
                         <Text strong>{record.full_name || `${record.first_name} ${record.last_name}`}</Text>
@@ -418,6 +432,23 @@ const Seniors = () => {
                         >
                             {barangays.map(b => (
                                 <Option key={b.id} value={b.id}>{b.name}</Option>
+                            ))}
+                        </Select>
+                    </Col>
+                    <Col xs={12} sm={4}>
+                        <Select
+                            placeholder="All Genders"
+                            style={{ width: '100%' }}
+                            allowClear
+                            onChange={(value) => {
+                                const newFilters = { ...filters, gender_id: value };
+                                setFilters(newFilters);
+                                setPagination(prev => ({ ...prev, current: 1 }));
+                                fetchSeniors(1, pagination.pageSize, newFilters);
+                            }}
+                        >
+                            {genders.map(g => (
+                                <Option key={g.id} value={g.id}>{g.name}</Option>
                             ))}
                         </Select>
                     </Col>

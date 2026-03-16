@@ -1015,7 +1015,7 @@ const NewApplication = () => {
                     </Form.Item>
                 </Col>
                 <Col xs={24} sm={12} md={6}>
-                    <Form.Item name="occupation" label="Occupation">
+                    <Form.Item name="occupation" label="Occupation / Source of Income">
                         <Input placeholder="Current or previous occupation" size="large" />
                     </Form.Item>
                 </Col>

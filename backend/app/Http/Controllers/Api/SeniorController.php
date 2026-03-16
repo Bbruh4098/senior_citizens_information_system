@@ -51,6 +51,11 @@ class SeniorController extends Controller
             }
         }
 
+        // Gender filter
+        if ($genderId = $request->get('gender_id')) {
+            $query->where('gender_id', $genderId);
+        }
+
         // Age categories filter
         if ($ageCategories = $request->get('age_categories')) {
             $categories = is_array($ageCategories) ? $ageCategories : explode(',', $ageCategories);

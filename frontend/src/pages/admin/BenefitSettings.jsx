@@ -206,29 +206,25 @@ function BenefitSettings() {
             title: 'Age Range',
             key: 'age',
             render: (_, record) => (
-                <Tag color="blue">
+                <span>
                     {record.min_age}
                     {record.max_age ? ` - ${record.max_age}` : '+'}
-                </Tag>
+                </span>
             ),
         },
         {
             title: 'Amount',
             dataIndex: 'amount',
             key: 'amount',
-            render: (amount) => (
-                <Text strong style={{ color: '#52c41a' }}>
-                    {formatCurrency(amount)}
-                </Text>
-            ),
+            render: (amount) => formatCurrency(amount),
         },
         {
             title: 'Frequency',
             key: 'frequency',
             render: (_, record) => (
-                <Tag color={record.is_one_time ? 'purple' : 'cyan'}>
+                <span>
                     {record.frequency_description || (record.is_one_time ? 'One-time' : 'No limit')}
-                </Tag>
+                </span>
             ),
         },
         {
@@ -236,17 +232,17 @@ function BenefitSettings() {
             key: 'target',
             render: (_, record) => {
                 if (record.target_scope === 'all') {
-                    return <Tag color="green">All Barangays</Tag>;
+                    return 'All Barangays';
                 }
                 if (record.target_scope === 'branch') {
-                    return <Tag color="blue">{record.branch?.name || 'Field Office'}</Tag>;
+                    return record.branch?.name || 'Field Office';
                 }
                 if (record.target_scope === 'district') {
-                    return <Tag color="geekblue">{record.district?.name || 'District'}</Tag>;
+                    return record.district?.name || 'District';
                 }
                 return (
                     <Tooltip title={record.barangays?.map(b => b.name).join(', ')}>
-                        <Tag color="orange">{record.barangays?.length || 0} Barangays</Tag>
+                        <span>{record.barangays?.length || 0} Barangays</span>
                     </Tooltip>
                 );
             },

@@ -327,18 +327,14 @@ const Benefits = () => {
             title: 'Benefit Type',
             dataIndex: ['benefit_type', 'name'],
             key: 'benefit_type',
-            render: (text) => <Tag color="purple">{text}</Tag>,
+            render: (text) => text || '—',
         },
         {
             title: 'Amount',
             dataIndex: 'amount',
             key: 'amount',
             align: 'right',
-            render: (amount) => (
-                <Text strong style={{ color: '#52c41a' }}>
-                    ₱{parseFloat(amount).toLocaleString()}
-                </Text>
-            ),
+            render: (amount) => `₱${parseFloat(amount).toLocaleString()}`,
         },
         {
             title: 'Date Filed',
@@ -442,7 +438,7 @@ const Benefits = () => {
             title: 'OSCA ID',
             dataIndex: 'osca_id',
             key: 'osca_id',
-            render: (text) => <Text strong style={{ color: '#1890ff' }}>{text}</Text>,
+            render: (text) => text || '—',
         },
         {
             title: 'Senior Name',
@@ -455,7 +451,7 @@ const Benefits = () => {
             key: 'age',
             width: 80,
             align: 'center',
-            render: (age) => <Badge count={age} style={{ backgroundColor: '#108ee9' }} />,
+            render: (age) => age,
         },
         {
             title: 'Barangay',
@@ -466,14 +462,14 @@ const Benefits = () => {
             title: 'Eligible Benefit',
             dataIndex: 'benefit_name',
             key: 'benefit_name',
-            render: (text) => <Tag color="purple">{text}</Tag>,
+            render: (text) => text || '—',
         },
         {
             title: 'Benefit Amount',
             dataIndex: 'formatted_amount',
             key: 'formatted_amount',
             align: 'right',
-            render: (text) => <Text strong style={{ color: '#52c41a' }}>{text}</Text>,
+            render: (text) => text || '—',
         },
         {
             title: 'Actions',

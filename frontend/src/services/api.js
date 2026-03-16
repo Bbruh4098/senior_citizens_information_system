@@ -53,7 +53,7 @@ export const dashboardApi = {
 
   getGenderDistribution: () => api.get('/dashboard/gender-distribution'),
 
-  getHeatmapData: () => api.get('/dashboard/heatmap'),
+  getHeatmapData: (params) => api.get('/dashboard/heatmap', { params }),
 };
 
 // Seniors API
