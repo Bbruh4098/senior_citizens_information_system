@@ -95,14 +95,7 @@ const Navbar = () => {
                             Senior Login
                         </Button>
                     </Link>
-                    <Link to="/admin">
-                        <Button
-                            icon={<UserOutlined />}
-                            style={{ borderRadius: 8 }}
-                        >
-                            {/* Staff Login */}
-                        </Button>
-                    </Link>
+
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -175,11 +168,7 @@ const Navbar = () => {
                                 Senior Login
                             </Button>
                         </Link>
-                        <Link to="/admin" onClick={() => setMobileOpen(false)}>
-                            <Button icon={<UserOutlined />} block style={{ borderRadius: 8, marginTop: 8 }}>
-                                Staff Login
-                            </Button>
-                        </Link>
+
                     </div>
                 </Drawer>
             </nav>

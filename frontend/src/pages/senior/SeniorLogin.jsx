@@ -1,27 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Card, Form, Input, Button, Typography, Steps, message, Result } from 'antd';
+import { Form, Input, Button, Typography, message, Divider } from 'antd';
 import {
     UserOutlined,
     MobileOutlined,
     LockOutlined,
     CheckCircleOutlined,
-    SafetyOutlined,
+    SafetyCertificateOutlined,
     ReloadOutlined,
+    ArrowLeftOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const SeniorLogin = () => {
-    const [step, setStep] = useState(0); // 0: OSCA ID, 1: OTP, 2: PIN Setup/Login
+    const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [loginMode, setLoginMode] = useState('otp'); // 'otp' or 'pin'
+    const [loginMode, setLoginMode] = useState('otp');
     const [seniorId, setSeniorId] = useState(null);
     const [devOtp, setDevOtp] = useState(null);
-    const [needsPinSetup, setNeedsPinSetup] = useState(false);
 
     const [smsSent, setSmsSent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
@@ -30,7 +30,6 @@ const SeniorLogin = () => {
     const [form] = Form.useForm();
     const navigate = useNavigate();
 
-    // Cooldown timer effect
     useEffect(() => {
         if (resendCooldown > 0) {
             cooldownRef.current = setTimeout(() => {
@@ -49,8 +48,6 @@ const SeniorLogin = () => {
             setLastOtpValues(values);
             setStep(1);
             setResendCooldown(60);
-
-            // Demo mode: show OTP on screen if SMS wasn't actually sent
             if (response.data.demo_otp) {
                 setDevOtp(response.data.demo_otp);
                 message.info('Demo Mode: OTP is displayed on screen');
@@ -83,11 +80,8 @@ const SeniorLogin = () => {
                 otp: values.otp,
                 pin: values.pin,
             });
-
-            // Store token and senior data
             localStorage.setItem('senior_token', response.data.token);
             localStorage.setItem('senior', JSON.stringify(response.data.senior));
-
             message.success('Login successful!');
             navigate('/senior/dashboard');
         } catch (error) {
@@ -105,10 +99,8 @@ const SeniorLogin = () => {
                 osca_id: values.osca_id,
                 pin: values.pin,
             });
-
             localStorage.setItem('senior_token', response.data.token);
             localStorage.setItem('senior', JSON.stringify(response.data.senior));
-
             message.success('Login successful!');
             navigate('/senior/dashboard');
         } catch (error) {
@@ -124,232 +116,389 @@ const SeniorLogin = () => {
         }
     };
 
+    /* ─── Shared input style ─── */
+    const inputStyle = {
+        height: 48, borderRadius: 10,
+        border: '1.5px solid #e5e7eb', fontSize: 15,
+    };
+    const pinInputStyle = {
+        ...inputStyle, textAlign: 'center', letterSpacing: 8,
+    };
+    const labelStyle = { fontWeight: 500, color: '#374151' };
+
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 24,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         }}>
-            <Card style={{
-                width: '100%',
-                maxWidth: 440,
-                borderRadius: 16,
-                boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+            {/* ─── Left Panel: Branding ─── */}
+            <div style={{
+                flex: 1,
+                background: 'linear-gradient(160deg, #064e3b 0%, #065f46 35%, #059669 70%, #34d399 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+                padding: '48px 40px',
             }}>
-                <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <SafetyOutlined style={{ fontSize: 48, color: '#4338ca', marginBottom: 16 }} />
-                    <Title level={3} style={{ marginBottom: 8 }}>Senior Citizen Portal</Title>
-                    <Paragraph type="secondary">
-                        Access your profile, benefits, and services
-                    </Paragraph>
+                {/* Decorative circles */}
+                <div style={{
+                    position: 'absolute', top: -80, left: -80,
+                    width: 300, height: 300, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.04)',
+                }} />
+                <div style={{
+                    position: 'absolute', bottom: -120, right: -60,
+                    width: 400, height: 400, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.03)',
+                }} />
+                <div style={{
+                    position: 'absolute', top: '30%', right: -40,
+                    width: 200, height: 200, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.02)',
+                }} />
+
+                {/* Logo */}
+                <div style={{
+                    width: 160, height: 160, borderRadius: '50%',
+                    overflow: 'hidden',
+                    border: '4px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.3), 0 0 80px rgba(16,185,129,0.2)',
+                    marginBottom: 32,
+                    position: 'relative', zIndex: 1,
+                }}>
+                    <img
+                        src="/images/osca_logo.jpg"
+                        alt="City of Zamboanga Official Seal"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                 </div>
 
-                {/* Login Mode Toggle */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-                    <Button
-                        type={loginMode === 'otp' ? 'primary' : 'default'}
-                        style={{ flex: 1, borderRadius: 8 }}
-                        onClick={() => { setLoginMode('otp'); setStep(0); }}
-                    >
-                        <MobileOutlined /> OTP Login
-                    </Button>
-                    <Button
-                        type={loginMode === 'pin' ? 'primary' : 'default'}
-                        style={{ flex: 1, borderRadius: 8 }}
-                        onClick={() => setLoginMode('pin')}
-                    >
-                        <LockOutlined /> PIN Login
-                    </Button>
+                {/* Title */}
+                <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                    <Title level={2} style={{
+                        color: '#fff', margin: 0, fontWeight: 700,
+                        letterSpacing: '-0.02em', fontSize: 28,
+                    }}>
+                        Senior Citizen
+                    </Title>
+                    <Title level={2} style={{
+                        color: '#fff', margin: '0 0 12px', fontWeight: 700,
+                        letterSpacing: '-0.02em', fontSize: 28,
+                    }}>
+                        Portal
+                    </Title>
+
+                    <div style={{
+                        width: 48, height: 3, borderRadius: 2,
+                        background: 'linear-gradient(90deg, #6ee7b7, #a7f3d0)',
+                        margin: '0 auto 16px',
+                    }} />
+
+                    <Text style={{
+                        color: 'rgba(255,255,255,0.7)', fontSize: 15,
+                        lineHeight: 1.6, display: 'block', maxWidth: 320,
+                    }}>
+                        Access your profile, benefits,
+                        <br />
+                        and services online
+                    </Text>
                 </div>
 
-                {/* OTP Login Flow */}
-                {loginMode === 'otp' && (
-                    <>
-                        {step === 0 && (
-                            <Form form={form} layout="vertical" onFinish={handleRequestOtp}>
-                                <Form.Item
-                                    name="osca_id"
-                                    label="OSCA ID Number"
-                                    rules={[{ required: true, message: 'Enter your OSCA ID' }]}
-                                >
-                                    <Input
-                                        prefix={<UserOutlined />}
-                                        size="large"
-                                        placeholder="e.g., 2024-12345"
-                                        style={{ borderRadius: 8 }}
-                                    />
-                                </Form.Item>
-                                <Form.Item
-                                    name="phone_number"
-                                    label="Registered Phone Number"
-                                    rules={[{ required: true, message: 'Enter your phone number' }]}
-                                >
-                                    <Input
-                                        prefix={<MobileOutlined />}
-                                        size="large"
-                                        placeholder="09XX XXX XXXX"
-                                        style={{ borderRadius: 8 }}
-                                    />
-                                </Form.Item>
-                                <Form.Item>
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        size="large"
-                                        block
-                                        loading={loading}
-                                        style={{ borderRadius: 8, background: '#4338ca' }}
+                {/* Bottom badge */}
+                <div style={{
+                    position: 'absolute', bottom: 32, left: 0, right: 0,
+                    display: 'flex', justifyContent: 'center', zIndex: 1,
+                }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 20px', borderRadius: 24,
+                        background: 'rgba(255,255,255,0.08)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                        <SafetyCertificateOutlined style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14 }} />
+                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                            Office of Senior Citizens Affairs
+                        </Text>
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── Right Panel: Login Form ─── */}
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#fafbfc',
+                padding: '48px 40px',
+                minHeight: '100vh',
+                overflowY: 'auto',
+            }}>
+                <div style={{ width: '100%', maxWidth: 420 }}>
+                    {/* Header */}
+                    <div style={{ marginBottom: 28 }}>
+                        <Text style={{
+                            color: '#059669', fontWeight: 600, fontSize: 13,
+                            textTransform: 'uppercase', letterSpacing: '0.08em',
+                        }}>
+                            Senior Citizen Portal
+                        </Text>
+                        <Title level={2} style={{
+                            margin: '8px 0 0', color: '#064e3b',
+                            fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em',
+                        }}>
+                            Welcome
+                        </Title>
+                        <Text style={{ color: '#6b7280', fontSize: 15 }}>
+                            Sign in to access your dashboard
+                        </Text>
+                    </div>
+
+                    {/* Login Mode Toggle */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+                        <Button
+                            type={loginMode === 'otp' ? 'primary' : 'default'}
+                            style={{
+                                flex: 1, borderRadius: 10, height: 42, fontWeight: 500,
+                                ...(loginMode === 'otp' ? {
+                                    background: 'linear-gradient(135deg, #059669, #34d399)',
+                                    border: 'none',
+                                } : {}),
+                            }}
+                            onClick={() => { setLoginMode('otp'); setStep(0); form.resetFields(); }}
+                        >
+                            <MobileOutlined /> OTP Login
+                        </Button>
+                        <Button
+                            type={loginMode === 'pin' ? 'primary' : 'default'}
+                            style={{
+                                flex: 1, borderRadius: 10, height: 42, fontWeight: 500,
+                                ...(loginMode === 'pin' ? {
+                                    background: 'linear-gradient(135deg, #059669, #34d399)',
+                                    border: 'none',
+                                } : {}),
+                            }}
+                            onClick={() => { setLoginMode('pin'); form.resetFields(); }}
+                        >
+                            <LockOutlined /> PIN Login
+                        </Button>
+                    </div>
+
+                    {/* ─── OTP Login Flow ─── */}
+                    {loginMode === 'otp' && (
+                        <>
+                            {step === 0 && (
+                                <Form form={form} layout="vertical" onFinish={handleRequestOtp} requiredMark={false}>
+                                    <Form.Item
+                                        name="osca_id"
+                                        label={<span style={labelStyle}>OSCA ID Number</span>}
+                                        rules={[{ required: true, message: 'Enter your OSCA ID' }]}
                                     >
-                                        Send OTP
-                                    </Button>
-                                </Form.Item>
-                            </Form>
-                        )}
+                                        <Input
+                                            prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
+                                            size="large"
+                                            placeholder="e.g., 2024-12345"
+                                            style={inputStyle}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name="phone_number"
+                                        label={<span style={labelStyle}>Registered Phone Number</span>}
+                                        rules={[{ required: true, message: 'Enter your phone number' }]}
+                                    >
+                                        <Input
+                                            prefix={<MobileOutlined style={{ color: '#9ca3af' }} />}
+                                            size="large"
+                                            placeholder="09XX XXX XXXX"
+                                            style={inputStyle}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item style={{ marginTop: 8 }}>
+                                        <Button
+                                            type="primary"
+                                            htmlType="submit"
+                                            size="large"
+                                            block
+                                            loading={loading}
+                                            style={{
+                                                height: 50, borderRadius: 10, fontSize: 16,
+                                                fontWeight: 600, border: 'none',
+                                                background: 'linear-gradient(135deg, #059669 0%, #34d399 100%)',
+                                                boxShadow: '0 4px 14px rgba(5,150,105,0.4)',
+                                            }}
+                                        >
+                                            Send OTP
+                                        </Button>
+                                    </Form.Item>
+                                </Form>
+                            )}
 
-                        {step === 1 && (
-                            <Form form={form} layout="vertical" onFinish={handleVerifyOtp}>
-                                {devOtp && (
-                                    <div style={{
-                                        padding: 12,
-                                        background: '#fff7e6',
-                                        border: '1px solid #ffd591',
-                                        borderRadius: 8,
-                                        marginBottom: 16,
-                                        textAlign: 'center',
-                                    }}>
-                                        <Text type="secondary">Dev OTP: </Text>
-                                        <Text strong style={{ fontSize: 18, letterSpacing: 2 }}>{devOtp}</Text>
+                            {step === 1 && (
+                                <Form form={form} layout="vertical" onFinish={handleVerifyOtp} requiredMark={false}>
+                                    {devOtp && (
+                                        <div style={{
+                                            padding: '12px 16px',
+                                            background: '#fffbeb',
+                                            border: '1px solid #fde68a',
+                                            borderRadius: 10,
+                                            marginBottom: 20,
+                                            textAlign: 'center',
+                                        }}>
+                                            <Text type="secondary">Dev OTP: </Text>
+                                            <Text strong style={{ fontSize: 20, letterSpacing: 4 }}>{devOtp}</Text>
+                                        </div>
+                                    )}
+                                    <Form.Item
+                                        name="otp"
+                                        label={<span style={labelStyle}>Enter OTP</span>}
+                                        rules={[{ required: true, len: 6, message: 'Enter 6-digit OTP' }]}
+                                    >
+                                        <Input
+                                            size="large"
+                                            maxLength={6}
+                                            placeholder="000000"
+                                            style={{ ...pinInputStyle, fontSize: 20 }}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name="pin"
+                                        label={<span style={labelStyle}>Set Your 6-Digit PIN</span>}
+                                        extra="This PIN will be used for future logins"
+                                        rules={[{ required: true, len: 6, message: 'Set a 6-digit PIN' }]}
+                                    >
+                                        <Input.Password
+                                            size="large"
+                                            maxLength={6}
+                                            placeholder="••••••"
+                                            style={pinInputStyle}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name="confirm_pin"
+                                        label={<span style={labelStyle}>Confirm PIN</span>}
+                                        dependencies={['pin']}
+                                        rules={[
+                                            { required: true, len: 6, message: 'Please confirm your PIN' },
+                                            ({ getFieldValue }) => ({
+                                                validator(_, value) {
+                                                    if (!value || getFieldValue('pin') === value) {
+                                                        return Promise.resolve();
+                                                    }
+                                                    return Promise.reject(new Error('PINs do not match'));
+                                                },
+                                            }),
+                                        ]}
+                                    >
+                                        <Input.Password
+                                            size="large"
+                                            maxLength={6}
+                                            placeholder="••••••"
+                                            style={pinInputStyle}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item style={{ marginTop: 8 }}>
+                                        <Button
+                                            type="primary"
+                                            htmlType="submit"
+                                            size="large"
+                                            block
+                                            loading={loading}
+                                            style={{
+                                                height: 50, borderRadius: 10, fontSize: 16,
+                                                fontWeight: 600, border: 'none',
+                                                background: 'linear-gradient(135deg, #059669 0%, #34d399 100%)',
+                                                boxShadow: '0 4px 14px rgba(5,150,105,0.4)',
+                                            }}
+                                        >
+                                            <CheckCircleOutlined /> Verify & Login
+                                        </Button>
+                                    </Form.Item>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Button type="link" onClick={() => setStep(0)} style={{ color: '#059669', padding: 0 }}>
+                                            <ArrowLeftOutlined /> Back
+                                        </Button>
+                                        <Button
+                                            type="link"
+                                            icon={<ReloadOutlined />}
+                                            disabled={resendCooldown > 0}
+                                            loading={loading}
+                                            onClick={handleResendOtp}
+                                            style={{ color: '#059669', padding: 0 }}
+                                        >
+                                            {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend OTP'}
+                                        </Button>
                                     </div>
-                                )}
-                                <Form.Item
-                                    name="otp"
-                                    label="Enter OTP"
-                                    rules={[{ required: true, len: 6, message: 'Enter 6-digit OTP' }]}
-                                >
-                                    <Input
-                                        size="large"
-                                        maxLength={6}
-                                        placeholder="000000"
-                                        style={{ borderRadius: 8, textAlign: 'center', letterSpacing: 8, fontSize: 20 }}
-                                    />
-                                </Form.Item>
-                                <Form.Item
-                                    name="pin"
-                                    label="Set Your 6-Digit PIN (for future logins)"
-                                    rules={[{ required: true, len: 6, message: 'Set a 6-digit PIN' }]}
-                                >
-                                    <Input.Password
-                                        size="large"
-                                        maxLength={6}
-                                        placeholder="••••••"
-                                        style={{ borderRadius: 8, textAlign: 'center', letterSpacing: 8 }}
-                                    />
-                                </Form.Item>
-                                <Form.Item
-                                    name="confirm_pin"
-                                    label="Confirm PIN"
-                                    dependencies={['pin']}
-                                    rules={[
-                                        { required: true, len: 6, message: 'Please confirm your PIN' },
-                                        ({ getFieldValue }) => ({
-                                            validator(_, value) {
-                                                if (!value || getFieldValue('pin') === value) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(new Error('PINs do not match'));
-                                            },
-                                        }),
-                                    ]}
-                                >
-                                    <Input.Password
-                                        size="large"
-                                        maxLength={6}
-                                        placeholder="••••••"
-                                        style={{ borderRadius: 8, textAlign: 'center', letterSpacing: 8 }}
-                                    />
-                                </Form.Item>
-                                <Form.Item>
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        size="large"
-                                        block
-                                        loading={loading}
-                                        style={{ borderRadius: 8, background: '#059669' }}
-                                    >
-                                        <CheckCircleOutlined /> Verify & Login
-                                    </Button>
-                                </Form.Item>
-                                <Button type="link" block onClick={() => setStep(0)}>
-                                    ← Back to OSCA ID
-                                </Button>
-                                <Button
-                                    type="link"
-                                    block
-                                    icon={<ReloadOutlined />}
-                                    disabled={resendCooldown > 0}
-                                    loading={loading}
-                                    onClick={handleResendOtp}
-                                    style={{ marginTop: 4 }}
-                                >
-                                    {resendCooldown > 0
-                                        ? `Resend OTP (${resendCooldown}s)`
-                                        : 'Resend OTP'}
-                                </Button>
-                            </Form>
-                        )}
-                    </>
-                )}
+                                </Form>
+                            )}
+                        </>
+                    )}
 
-                {/* PIN Login */}
-                {loginMode === 'pin' && (
-                    <Form form={form} layout="vertical" onFinish={handlePinLogin}>
-                        <Form.Item
-                            name="osca_id"
-                            label="OSCA ID Number"
-                            rules={[{ required: true, message: 'Enter your OSCA ID' }]}
-                        >
-                            <Input
-                                prefix={<UserOutlined />}
-                                size="large"
-                                placeholder="e.g., 2024-12345"
-                                style={{ borderRadius: 8 }}
-                            />
-                        </Form.Item>
-                        <Form.Item
-                            name="pin"
-                            label="Your 6-Digit PIN"
-                            rules={[{ required: true, len: 6, message: 'Enter your 6-digit PIN' }]}
-                        >
-                            <Input.Password
-                                size="large"
-                                maxLength={6}
-                                placeholder="••••••"
-                                style={{ borderRadius: 8, textAlign: 'center', letterSpacing: 8 }}
-                            />
-                        </Form.Item>
-                        <Form.Item>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                size="large"
-                                block
-                                loading={loading}
-                                style={{ borderRadius: 8, background: '#4338ca' }}
+                    {/* ─── PIN Login ─── */}
+                    {loginMode === 'pin' && (
+                        <Form form={form} layout="vertical" onFinish={handlePinLogin} requiredMark={false}>
+                            <Form.Item
+                                name="osca_id"
+                                label={<span style={labelStyle}>OSCA ID Number</span>}
+                                rules={[{ required: true, message: 'Enter your OSCA ID' }]}
                             >
-                                Login
-                            </Button>
-                        </Form.Item>
-                    </Form>
-                )}
+                                <Input
+                                    prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
+                                    size="large"
+                                    placeholder="e.g., 2024-12345"
+                                    style={inputStyle}
+                                />
+                            </Form.Item>
+                            <Form.Item
+                                name="pin"
+                                label={<span style={labelStyle}>Your 6-Digit PIN</span>}
+                                rules={[{ required: true, len: 6, message: 'Enter your 6-digit PIN' }]}
+                            >
+                                <Input.Password
+                                    size="large"
+                                    maxLength={6}
+                                    placeholder="••••••"
+                                    style={pinInputStyle}
+                                />
+                            </Form.Item>
+                            <Form.Item style={{ marginTop: 8 }}>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    size="large"
+                                    block
+                                    loading={loading}
+                                    style={{
+                                        height: 50, borderRadius: 10, fontSize: 16,
+                                        fontWeight: 600, border: 'none',
+                                        background: 'linear-gradient(135deg, #059669 0%, #34d399 100%)',
+                                        boxShadow: '0 4px 14px rgba(5,150,105,0.4)',
+                                    }}
+                                >
+                                    Sign In
+                                </Button>
+                            </Form.Item>
+                        </Form>
+                    )}
 
-                <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <Link to="/" style={{ color: '#4338ca' }}>← Back to Home</Link>
+                    <Divider style={{ margin: '20px 0', borderColor: '#e5e7eb' }} />
+
+                    {/* Footer */}
+                    <div style={{ textAlign: 'center' }}>
+                        <Link to="/" style={{ color: '#059669', fontWeight: 500, fontSize: 14 }}>
+                            <ArrowLeftOutlined /> Back to Home
+                        </Link>
+                        <br />
+                        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 8, display: 'inline-block' }}>
+                            © {new Date().getFullYear()} SCIS — Office of Senior Citizens Affairs, Zamboanga City
+                        </Text>
+                    </div>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 };
