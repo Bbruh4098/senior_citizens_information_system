@@ -3,6 +3,7 @@ import { ConfigProvider } from "antd";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import InstallPrompt from "./components/InstallPrompt";
 
 // Layouts
 import AdminLayout from "./layouts/AdminLayout";
@@ -202,6 +203,7 @@ function App() {
               {/* Catch all - redirect to home */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <InstallPrompt />
           </BrowserRouter>
         </AuthProvider>
       </ConfigProvider>
