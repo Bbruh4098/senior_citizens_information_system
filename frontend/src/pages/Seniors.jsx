@@ -176,6 +176,7 @@ const Seniors = () => {
     const [filters, setFilters] = useState({
         search: '',
         status: ['all'],
+        district: [],
         barangay_id: [],
         gender_id: [],
         age_categories: [], // For age filter: octogenarians, nonagenarians, centenarians
@@ -231,6 +232,7 @@ const Seniors = () => {
                 per_page: pageSize,
                 search: currentFilters.search || undefined,
                 status: currentFilters.status?.length ? currentFilters.status.join(',') : undefined,
+                district: currentFilters.district?.length ? currentFilters.district.join(',') : undefined,
                 barangay_id: currentFilters.barangay_id?.length ? currentFilters.barangay_id.join(',') : undefined,
                 gender_id: currentFilters.gender_id?.length ? currentFilters.gender_id.join(',') : undefined,
                 age_categories: currentFilters.age_categories.length > 0 ? currentFilters.age_categories.join(',') : undefined,
@@ -288,6 +290,7 @@ const Seniors = () => {
             const params = {
                 search: filters.search || undefined,
                 status: filters.status?.length ? filters.status.join(',') : undefined,
+                district: filters.district?.length ? filters.district.join(',') : undefined,
                 barangay_id: filters.barangay_id?.length ? filters.barangay_id.join(',') : undefined,
                 gender_id: filters.gender_id?.length ? filters.gender_id.join(',') : undefined,
                 age_categories: filters.age_categories.length > 0 ? filters.age_categories.join(',') : undefined,
@@ -375,6 +378,11 @@ const Seniors = () => {
         { label: 'Centenarians (100+)', value: 'centenarians' },
     ];
 
+    const districtOptions = [...new Set(barangays.map((b) => b.district).filter(Boolean))].map((d) => ({
+        label: d,
+        value: d,
+    }));
+
     const columns = [
         {
             title: 'Senior Citizen',
@@ -411,6 +419,18 @@ const Seniors = () => {
         },
         {
             title: renderFilterTitle(
+                'Gender',
+                genders.map((g) => ({ label: g.name, value: g.id })),
+                filters.gender_id,
+                (values) => handleMultiFilterChange('gender_id', values)
+            ),
+            key: 'gender',
+            dataIndex: 'gender_id',
+            width: 120,
+            render: (genderId) => getGenderLabel(genderId),
+        },
+        {
+            title: renderFilterTitle(
                 'Barangay',
                 barangays.map((b) => ({ label: b.name, value: b.id })),
                 filters.barangay_id,
@@ -421,15 +441,14 @@ const Seniors = () => {
         },
         {
             title: renderFilterTitle(
-                'Gender',
-                genders.map((g) => ({ label: g.name, value: g.id })),
-                filters.gender_id,
-                (values) => handleMultiFilterChange('gender_id', values)
+                'District',
+                districtOptions,
+                filters.district,
+                (values) => handleMultiFilterChange('district', values)
             ),
-            key: 'gender',
-            dataIndex: 'gender_id',
+            key: 'district',
             width: 120,
-            render: (genderId) => getGenderLabel(genderId),
+            render: (_, record) => record.barangay?.district || '—',
         },
         {
             title: renderFilterTitle(

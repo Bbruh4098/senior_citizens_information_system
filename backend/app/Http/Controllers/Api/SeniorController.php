@@ -44,6 +44,17 @@ class SeniorController extends Controller
             }
         }
 
+        // District filter (single or multi)
+        if ($districtParam = $request->get('district')) {
+            $districts = is_array($districtParam) ? $districtParam : explode(',', $districtParam);
+            $districts = array_values(array_filter(array_map('trim', $districts)));
+            if (!empty($districts)) {
+                $query->whereHas('barangay', function ($q) use ($districts) {
+                    $q->whereIn('district', $districts);
+                });
+            }
+        }
+
         // Status filter (single or multi)
         if ($statusParam = $request->get('status')) {
             $statuses = is_array($statusParam) ? $statusParam : explode(',', $statusParam);
@@ -240,6 +251,16 @@ class SeniorController extends Controller
             $barangayIds = array_values(array_filter(array_map('trim', $barangayIds)));
             if (!empty($barangayIds)) {
                 $query->whereIn('barangay_id', $barangayIds);
+            }
+        }
+
+        if ($districtParam = $request->get('district')) {
+            $districts = is_array($districtParam) ? $districtParam : explode(',', $districtParam);
+            $districts = array_values(array_filter(array_map('trim', $districts)));
+            if (!empty($districts)) {
+                $query->whereHas('barangay', function ($q) use ($districts) {
+                    $q->whereIn('district', $districts);
+                });
             }
         }
 
