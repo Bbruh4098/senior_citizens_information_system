@@ -14,6 +14,85 @@ use Carbon\Carbon;
 class BenefitController extends Controller
 {
     use LogsAudit;
+
+    private function applyClaimFilters($query, Request $request)
+    {
+        $currentYear = now()->year;
+
+        // Filter by status 
+        if ($status = $request->get('status')) {
+            $statuses = is_array($status) ? $status : explode(',', $status);
+            $statuses = array_filter(array_map('trim', $statuses));
+            if (count($statuses) === 1) {
+                $query->status($statuses[0]);
+            } elseif (count($statuses) > 1) {
+                $query->whereIn('status', $statuses);
+            }
+        }
+
+        // Filter by benefit type 
+        if ($typeId = $request->get('benefit_type_id')) {
+            $typeIds = is_array($typeId) ? $typeId : explode(',', $typeId);
+            $typeIds = array_filter(array_map('trim', $typeIds));
+            if (count($typeIds) === 1) {
+                $query->where('benefit_type_id', $typeIds[0]);
+            } elseif (count($typeIds) > 1) {
+                $query->whereIn('benefit_type_id', $typeIds);
+            }
+        }
+
+        // Filter by date range
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('created_at', [
+                Carbon::parse($dateFrom)->startOfDay(),
+                Carbon::parse($dateTo)->endOfDay(),
+            ]);
+        } elseif ($dateFrom) {
+            $query->where('created_at', '>=', Carbon::parse($dateFrom)->startOfDay());
+        } elseif ($dateTo) {
+            $query->where('created_at', '<=', Carbon::parse($dateTo)->endOfDay());
+        } elseif ($year = $request->get('year')) {
+            $query->forYear($year);
+        } else {
+            $query->forYear($currentYear);
+        }
+
+        // Filter by barangay IDs
+        if ($barangayIds = $request->get('barangay_ids')) {
+            $ids = is_array($barangayIds) ? $barangayIds : explode(',', $barangayIds);
+            $ids = array_filter(array_map('trim', $ids));
+            if (!empty($ids)) {
+                $query->whereHas('senior', function ($q) use ($ids) {
+                    $q->whereIn('barangay_id', $ids);
+                });
+            }
+        }
+
+        // Filter by district 
+        if ($district = $request->get('district')) {
+            $districts = is_array($district) ? $district : explode(',', $district);
+            $districts = array_filter(array_map('trim', $districts));
+            if (!empty($districts)) {
+                $query->whereHas('senior.barangay', function ($q) use ($districts) {
+                    $q->whereIn('district', $districts);
+                });
+            }
+        }
+
+        // Search by senior name or OSCA ID
+        if ($search = $request->get('search')) {
+            $query->whereHas('senior', function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('osca_id', 'like', "%{$search}%");
+            });
+        }
+
+        return $query;
+    }
+
     // Get all benefit types.
     public function types()
     {
@@ -45,36 +124,11 @@ class BenefitController extends Controller
     {
         $user = $request->user();
         $perPage = $request->get('per_page', 10);
-        $currentYear = now()->year;
 
         $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor', 'claimer', 'approver', 'releaser', 'rejecter'])
             ->accessibleBy($user);
 
-        // Filter by status
-        if ($status = $request->get('status')) {
-            $query->status($status);
-        }
-
-        // Filter by year
-        if ($year = $request->get('year')) {
-            $query->forYear($year);
-        } else {
-            $query->forYear($currentYear);
-        }
-
-        // Filter by benefit type
-        if ($typeId = $request->get('benefit_type_id')) {
-            $query->where('benefit_type_id', $typeId);
-        }
-
-        // Search by senior name or OSCA ID
-        if ($search = $request->get('search')) {
-            $query->whereHas('senior', function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('osca_id', 'like', "%{$search}%");
-            });
-        }
+        $this->applyClaimFilters($query, $request);
 
         $query->orderBy('created_at', 'desc');
         $claims = $query->paginate($perPage);
@@ -95,37 +149,16 @@ class BenefitController extends Controller
     public function exportClaims(Request $request)
     {
         $user = $request->user();
-        $currentYear = now()->year;
 
         $query = BenefitClaim::with(['senior', 'senior.barangay', 'benefitType', 'processor'])
             ->accessibleBy($user);
 
-        if ($status = $request->get('status')) {
-            $query->status($status);
-        }
-
-        if ($year = $request->get('year')) {
-            $query->forYear($year);
-        } else {
-            $query->forYear($currentYear);
-        }
-
-        if ($typeId = $request->get('benefit_type_id')) {
-            $query->where('benefit_type_id', $typeId);
-        }
-
-        if ($search = $request->get('search')) {
-            $query->whereHas('senior', function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('osca_id', 'like', "%{$search}%");
-            });
-        }
+        $this->applyClaimFilters($query, $request);
 
         $claims = $query->orderBy('created_at', 'desc')->get();
 
         $headers = [
-            'OSCA ID', 'Senior Name', 'Barangay', 'Benefit Type',
+            'OSCA ID', 'Senior Name', 'Barangay', 'District', 'Benefit Type',
             'Amount', 'Year', 'Status', 'Date Filed', 'Released At',
         ];
 
@@ -133,6 +166,7 @@ class BenefitController extends Controller
             $c->senior?->osca_id ?? '',
             $c->senior?->full_name ?? ($c->senior?->first_name . ' ' . $c->senior?->last_name),
             $c->senior?->barangay?->name ?? '',
+            $c->senior?->barangay?->district ?? '',
             $c->benefitType?->name ?? '',
             number_format($c->amount, 2),
             $c->claim_year,
@@ -141,16 +175,18 @@ class BenefitController extends Controller
             $c->released_at?->format('m/d/Y') ?? '',
         ])->toArray();
 
-        $year = $request->get('year') ?? $currentYear;
+        $label = $request->get('date_from') && $request->get('date_to')
+            ? $request->get('date_from') . '_to_' . $request->get('date_to')
+            : ($request->get('year') ?? now()->year);
         $excelService = new \App\Services\ExcelExportService();
         $excelService->create(
-            "Benefit Claims Report - Year {$year}",
+            "Benefit Claims Report - {$label}",
             $headers,
             $data,
             $user->full_name ?? $user->username ?? 'Admin'
         );
 
-        return $excelService->download('benefit_claims_' . $year . '_' . now()->format('Ymd_His') . '.xlsx');
+        return $excelService->download('benefit_claims_' . $label . '_' . now()->format('Ymd_His') . '.xlsx');
     }
 
     // Get seniors eligible for benefits they haven't claimed yet.
@@ -354,47 +390,104 @@ class BenefitController extends Controller
         $user = $request->user();
         $currentYear = now()->year;
 
-        $baseQuery = BenefitClaim::accessibleBy($user)->forYear($currentYear);
+        // Build a base query that respects all active filters
+        $baseQuery = BenefitClaim::accessibleBy($user);
+        $this->applyClaimFilters($baseQuery, $request);
 
+        // Clone for each stat so filters are preserved but status overrides work
         $stats = [
             'total_claims' => (clone $baseQuery)->count(),
-            'pending' => (clone $baseQuery)->status('pending')->count(),
-            'approved' => (clone $baseQuery)->status('approved')->count(),
-            'released' => (clone $baseQuery)->status('released')->count(),
-            'rejected' => (clone $baseQuery)->status('rejected')->count(),
-            'total_released_amount' => (clone $baseQuery)->status('released')->sum('amount'),
+            'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
+            'approved' => (clone $baseQuery)->where('status', 'approved')->count(),
+            'released' => (clone $baseQuery)->where('status', 'released')->count(),
+            'rejected' => (clone $baseQuery)->where('status', 'rejected')->count(),
+            'total_released_amount' => (clone $baseQuery)->where('status', 'released')->sum('amount'),
         ];
 
-        // Get eligible count (seniors who can claim but haven't)
-        $benefitTypes = BenefitType::active()->where('amount', '>', 0)->get();
-        $eligibleCount = 0;
+        // Eligible unclaimed count — only compute when no claim-level filters are active
+        // (eligible count is a senior-level metric, not a claims metric)
+        $hasClaimFilters = $request->filled('status') || $request->filled('benefit_type_id');
+        if (!$hasClaimFilters) {
+            $benefitTypes = BenefitType::active()->where('amount', '>', 0)->get();
+            $eligibleCount = 0;
 
-        foreach ($benefitTypes as $benefitType) {
-            $query = SeniorCitizen::where('is_active', true)
-                ->when($user->role_id !== 1 && $user->branch_id, function ($q) use ($user) {
-                    $q->accessibleBy($user);
-                });
+            foreach ($benefitTypes as $benefitType) {
+                $query = SeniorCitizen::where('is_active', true)
+                    ->when($user->role_id !== 1 && $user->branch_id, function ($q) use ($user) {
+                        $q->accessibleBy($user);
+                    });
 
-            $minBirthdate = now()->subYears($benefitType->max_age ?? 150)->startOfYear();
-            $maxBirthdate = now()->subYears($benefitType->min_age)->endOfYear();
+                // Apply barangay filter to eligible count too
+                if ($barangayIds = $request->get('barangay_ids')) {
+                    $ids = is_array($barangayIds) ? $barangayIds : explode(',', $barangayIds);
+                    $ids = array_filter(array_map('trim', $ids));
+                    if (!empty($ids)) {
+                        $query->whereIn('barangay_id', $ids);
+                    }
+                }
 
-            $query->whereBetween('birthdate', [$minBirthdate, $maxBirthdate]);
+                // Apply district filter to eligible count
+                if ($district = $request->get('district')) {
+                    $districts = is_array($district) ? $district : explode(',', $district);
+                    $districts = array_filter(array_map('trim', $districts));
+                    if (!empty($districts)) {
+                        $query->whereHas('barangay', function ($q) use ($districts) {
+                            $q->whereIn('district', $districts);
+                        });
+                    }
+                }
 
-            if ($benefitType->is_one_time) {
-                $query->whereDoesntHave('benefitClaims', function ($q) use ($benefitType) {
-                    $q->where('benefit_type_id', $benefitType->id)
-                        ->whereIn('status', ['approved', 'released', 'pending']);
-                });
+                $minBirthdate = now()->subYears($benefitType->max_age ?? 150)->startOfYear();
+                $maxBirthdate = now()->subYears($benefitType->min_age)->endOfYear();
+
+                $query->whereBetween('birthdate', [$minBirthdate, $maxBirthdate]);
+
+                if ($benefitType->is_one_time) {
+                    $query->whereDoesntHave('benefitClaims', function ($q) use ($benefitType) {
+                        $q->where('benefit_type_id', $benefitType->id)
+                            ->whereIn('status', ['approved', 'released', 'pending']);
+                    });
+                }
+
+                $eligibleCount += $query->count();
             }
 
-            $eligibleCount += $query->count();
+            $stats['eligible_unclaimed'] = $eligibleCount;
+        } else {
+            $stats['eligible_unclaimed'] = null; // Not applicable when claim filters are active
         }
-
-        $stats['eligible_unclaimed'] = $eligibleCount;
 
         return response()->json([
             'success' => true,
             'data' => $stats,
+        ]);
+    }
+
+    /**
+     * Get filter options: distinct barangays, districts, and benefit types present in claims.
+     */
+    public function filterOptions(Request $request)
+    {
+        $user = $request->user();
+
+        // Get barangays that have claims
+        $barangays = DB::table('benefit_claims')
+            ->join('senior_citizens', 'benefit_claims.senior_id', '=', 'senior_citizens.id')
+            ->join('barangays', 'senior_citizens.barangay_id', '=', 'barangays.id')
+            ->select('barangays.id', 'barangays.name', 'barangays.district')
+            ->distinct()
+            ->orderBy('barangays.name')
+            ->get();
+
+        // Get distinct districts
+        $districts = $barangays->pluck('district')->filter()->unique()->sort()->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'barangays' => $barangays,
+                'districts' => $districts,
+            ],
         ]);
     }
 

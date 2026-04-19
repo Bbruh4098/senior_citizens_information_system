@@ -280,7 +280,9 @@ export const benefitsApi = {
 
   getDistribution: (params) => api.get('/benefits/distribution', { params }),
 
-  getStatistics: () => api.get('/benefits/statistics'),
+  getStatistics: (params) => api.get('/benefits/statistics', { params }),
+
+  getFilterOptions: () => api.get('/benefits/filter-options'),
 
   createClaim: (data) => api.post('/benefits/claims', data),
 

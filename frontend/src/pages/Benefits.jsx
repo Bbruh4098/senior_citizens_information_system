@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Card,
     Table,
@@ -20,6 +20,10 @@ import {
     Divider,
     Alert,
     Avatar,
+    DatePicker,
+    Checkbox,
+    Popover,
+    Empty,
 } from 'antd';
 import {
     GiftOutlined,
@@ -35,6 +39,9 @@ import {
     DownloadOutlined,
     ManOutlined,
     WomanOutlined,
+    FilterOutlined,
+    FilterFilled,
+    CloseOutlined,
 } from '@ant-design/icons';
 import { benefitsApi } from '../services/api';
 import dayjs from 'dayjs';
@@ -42,11 +49,134 @@ import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+const { RangePicker } = DatePicker;
+
+const ColumnFilterPopover = ({ title, options, selected, onChange, labelKey = 'label', valueKey = 'value' }) => {
+    const [search, setSearch] = useState('');
+    const [tempSelected, setTempSelected] = useState(selected || []);
+    const [open, setOpen] = useState(false);
+
+    // Sync when parent changes
+    useEffect(() => {
+        setTempSelected(selected || []);
+    }, [selected]);
+
+    const filtered = options.filter((o) => {
+        const label = typeof o === 'string' ? o : o[labelKey];
+        return label?.toLowerCase().includes(search.toLowerCase());
+    });
+
+    const allValues = filtered.map((o) => (typeof o === 'string' ? o : o[valueKey]));
+    const allSelected = allValues.length > 0 && allValues.every((v) => tempSelected.includes(v));
+
+    const handleApply = () => {
+        onChange(tempSelected);
+        setOpen(false);
+    };
+
+    const handleClear = () => {
+        setTempSelected([]);
+    };
+
+    const handleSelectAll = () => {
+        if (allSelected) {
+            // Deselect all visible
+            setTempSelected(tempSelected.filter((v) => !allValues.includes(v)));
+        } else {
+            // Add all visible
+            const merged = [...new Set([...tempSelected, ...allValues])];
+            setTempSelected(merged);
+        }
+    };
+
+    const handleToggle = (value) => {
+        setTempSelected((prev) =>
+            prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+        );
+    };
+
+    const isActive = selected && selected.length > 0;
+
+    const content = (
+        <div style={{ width: 250 }}>
+            <Input
+                placeholder={`Search ${title}...`}
+                prefix={<SearchOutlined />}
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                allowClear
+                style={{ marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Button type="link" size="small" onClick={handleSelectAll} style={{ padding: 0 }}>
+                    {allSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button type="link" size="small" onClick={handleClear} style={{ padding: 0 }} danger>
+                    Clear
+                </Button>
+            </div>
+            <div style={{ maxHeight: 220, overflowY: 'auto', borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
+                {filtered.length === 0 ? (
+                    <Empty description="No options" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '8px 0' }} />
+                ) : (
+                    filtered.map((option) => {
+                        const label = typeof option === 'string' ? option : option[labelKey];
+                        const value = typeof option === 'string' ? option : option[valueKey];
+                        return (
+                            <div
+                                key={value}
+                                style={{ padding: '4px 0', cursor: 'pointer' }}
+                                onClick={() => handleToggle(value)}
+                            >
+                                <Checkbox checked={tempSelected.includes(value)}>
+                                    <Text style={{ fontSize: 13 }}>{label}</Text>
+                                </Checkbox>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+            <Divider style={{ margin: '8px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button size="small" onClick={() => { setTempSelected(selected || []); setOpen(false); }}>
+                    Cancel
+                </Button>
+                <Button type="primary" size="small" onClick={handleApply}>
+                    Apply
+                </Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <Popover
+            content={content}
+            trigger="click"
+            open={open}
+            onOpenChange={(v) => {
+                setOpen(v);
+                if (v) {
+                    setTempSelected(selected || []);
+                    setSearch('');
+                }
+            }}
+            placement="bottomLeft"
+        >
+            <Tooltip title={`Filter by ${title}`}>
+                {isActive ? (
+                    <FilterFilled style={{ color: '#1890ff', cursor: 'pointer', marginLeft: 4 }} />
+                ) : (
+                    <FilterOutlined style={{ color: '#bfbfbf', cursor: 'pointer', marginLeft: 4 }} />
+                )}
+            </Tooltip>
+        </Popover>
+    );
+};
 
 const Benefits = () => {
     const { user } = useAuth();
     const isMainAdmin = user?.role_id === 1;
-    const currentYear = new Date().getFullYear();
 
     // State
     const [activeTab, setActiveTab] = useState('claims');
@@ -58,33 +188,63 @@ const Benefits = () => {
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [eligiblePagination, setEligiblePagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
+    // Filter options from API
+    const [filterOptions, setFilterOptions] = useState({ barangays: [], districts: [] });
+
     // Senior History Modal
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [seniorHistory, setSeniorHistory] = useState(null);
 
-    // Filters
-    const [statusFilter, setStatusFilter] = useState('');
-    const [typeFilter, setTypeFilter] = useState('');
-    const [yearFilter, setYearFilter] = useState(currentYear);
+    // Filters — multi-select arrays
+    const [statusFilter, setStatusFilter] = useState([]);
+    const [typeFilter, setTypeFilter] = useState([]);
+    const [barangayFilter, setBarangayFilter] = useState([]);
+    const [districtFilter, setDistrictFilter] = useState([]);
+    const [dateRange, setDateRange] = useState([dayjs().startOf('year'), dayjs()]);
+    const [searchText, setSearchText] = useState('');
+
+    // Eligible tab filters
     const [eligibleSearch, setEligibleSearch] = useState('');
     const [eligibleTypeFilter, setEligibleTypeFilter] = useState('');
-    const [searchText, setSearchText] = useState('');
+
+    // Debounce timer for search
+    const searchTimer = useRef(null);
+
+    // Build filter params object (reused by claims, stats, export)
+    const buildFilterParams = useCallback(() => {
+        const params = {};
+        if (statusFilter.length > 0) params.status = statusFilter.join(',');
+        if (typeFilter.length > 0) params.benefit_type_id = typeFilter.join(',');
+        if (barangayFilter.length > 0) params.barangay_ids = barangayFilter.join(',');
+        if (districtFilter.length > 0) params.district = districtFilter.join(',');
+        if (dateRange && dateRange[0] && dateRange[1]) {
+            params.date_from = dateRange[0].format('YYYY-MM-DD');
+            params.date_to = dateRange[1].format('YYYY-MM-DD');
+        }
+        if (searchText) params.search = searchText;
+        return params;
+    }, [statusFilter, typeFilter, barangayFilter, districtFilter, dateRange, searchText]);
 
     // Initial load
     useEffect(() => {
         fetchBenefitTypes();
-        fetchStatistics();
+        fetchFilterOptions();
     }, []);
 
-    // Load data when tab/filters change
+    // Load claims + stats whenever filters change
     useEffect(() => {
         if (activeTab === 'claims') {
             fetchClaims();
         } else {
             fetchEligible();
         }
-    }, [activeTab, statusFilter, typeFilter, yearFilter, searchText, pagination.current, eligiblePagination.current, eligibleSearch, eligibleTypeFilter]);
+    }, [activeTab, statusFilter, typeFilter, barangayFilter, districtFilter, dateRange, searchText, pagination.current, pagination.pageSize, eligiblePagination.current, eligibleSearch, eligibleTypeFilter]);
+
+    // Fetch statistics whenever filters change
+    useEffect(() => {
+        fetchStatistics();
+    }, [statusFilter, typeFilter, barangayFilter, districtFilter, dateRange, searchText]);
 
     const fetchBenefitTypes = async () => {
         try {
@@ -95,9 +255,19 @@ const Benefits = () => {
         }
     };
 
+    const fetchFilterOptions = async () => {
+        try {
+            const response = await benefitsApi.getFilterOptions();
+            setFilterOptions(response.data.data || { barangays: [], districts: [] });
+        } catch (error) {
+            console.error('Failed to fetch filter options:', error);
+        }
+    };
+
     const fetchStatistics = async () => {
         try {
-            const response = await benefitsApi.getStatistics();
+            const params = buildFilterParams();
+            const response = await benefitsApi.getStatistics(params);
             setStatistics(response.data.data || {});
         } catch (error) {
             console.error('Failed to fetch statistics:', error);
@@ -108,13 +278,10 @@ const Benefits = () => {
         setLoading(true);
         try {
             const params = {
+                ...buildFilterParams(),
                 page: pagination.current,
                 per_page: pagination.pageSize,
-                year: yearFilter,
             };
-            if (statusFilter) params.status = statusFilter;
-            if (typeFilter) params.benefit_type_id = typeFilter;
-            if (searchText) params.search = searchText;
 
             const response = await benefitsApi.getClaims(params);
             setClaims(response.data.data || []);
@@ -157,10 +324,7 @@ const Benefits = () => {
     const handleExport = async () => {
         try {
             message.loading({ content: 'Exporting claims...', key: 'export' });
-            const params = { year: yearFilter };
-            if (statusFilter) params.status = statusFilter;
-            if (typeFilter) params.benefit_type_id = typeFilter;
-            if (searchText) params.search = searchText;
+            const params = buildFilterParams();
 
             const response = await benefitsApi.exportClaims(params);
 
@@ -169,7 +333,7 @@ const Benefits = () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `benefits_claims_${yearFilter}_${Date.now()}.csv`;
+            a.download = `benefits_claims_${Date.now()}.xlsx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -196,7 +360,7 @@ const Benefits = () => {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `eligible_seniors_${Date.now()}.csv`;
+            a.download = `eligible_seniors_${Date.now()}.xlsx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -291,6 +455,85 @@ const Benefits = () => {
         return <Tag color={colors[status]}>{status?.toUpperCase()}</Tag>;
     };
 
+    // Debounced search handler
+    const handleSearchChange = (e) => {
+        const value = e.target.value;
+        if (searchTimer.current) clearTimeout(searchTimer.current);
+        searchTimer.current = setTimeout(() => {
+            setSearchText(value);
+            setPagination(prev => ({ ...prev, current: 1 }));
+        }, 400);
+    };
+
+    // Remove a specific filter
+    const handleRemoveFilter = (filterType, value) => {
+        switch (filterType) {
+            case 'status':
+                setStatusFilter(prev => prev.filter(v => v !== value));
+                break;
+            case 'type':
+                setTypeFilter(prev => prev.filter(v => v !== value));
+                break;
+            case 'barangay':
+                setBarangayFilter(prev => prev.filter(v => v !== value));
+                break;
+            case 'district':
+                setDistrictFilter(prev => prev.filter(v => v !== value));
+                break;
+            default:
+                break;
+        }
+        setPagination(prev => ({ ...prev, current: 1 }));
+    };
+
+    const handleClearAllFilters = () => {
+        setStatusFilter([]);
+        setTypeFilter([]);
+        setBarangayFilter([]);
+        setDistrictFilter([]);
+        setDateRange([dayjs().startOf('year'), dayjs()]);
+        setSearchText('');
+        setPagination(prev => ({ ...prev, current: 1 }));
+    };
+
+    const hasActiveFilters = statusFilter.length > 0 || typeFilter.length > 0 || barangayFilter.length > 0 || districtFilter.length > 0;
+
+    // Filter option lists
+    const statusOptions = [
+        { label: 'Pending', value: 'pending' },
+        { label: 'Approved', value: 'approved' },
+        { label: 'Released', value: 'released' },
+        { label: 'Rejected', value: 'rejected' },
+    ];
+
+    const typeOptions = benefitTypes.map(t => ({ label: t.name, value: t.id }));
+
+    const barangayOptions = (filterOptions.barangays || []).map(b => ({
+        label: b.name,
+        value: b.id,
+    }));
+
+    const districtOptions = (filterOptions.districts || []).map(d => ({
+        label: d,
+        value: d,
+    }));
+
+    // Helper to render column title with filter icon
+    const renderFilterTitle = (label, options, selected, onApply) => (
+        <Space size={4}>
+            {label}
+            <ColumnFilterPopover
+                title={label}
+                options={options}
+                selected={selected}
+                onChange={(values) => {
+                    onApply(values);
+                    setPagination(prev => ({ ...prev, current: 1 }));
+                }}
+            />
+        </Space>
+    );
+
     // Claims table columns
     const claimsColumns = [
         {
@@ -319,12 +562,18 @@ const Benefits = () => {
             },
         },
         {
-            title: 'Barangay',
+            title: renderFilterTitle('Barangay', barangayOptions, barangayFilter, setBarangayFilter),
             dataIndex: ['senior', 'barangay', 'name'],
             key: 'barangay',
         },
         {
-            title: 'Benefit Type',
+            title: renderFilterTitle('District', districtOptions, districtFilter, setDistrictFilter),
+            key: 'district',
+            dataIndex: ['senior', 'barangay', 'district'],
+            render: (text) => text || '—',
+        },
+        {
+            title: renderFilterTitle('Benefit Type', typeOptions, typeFilter, setTypeFilter),
             dataIndex: ['benefit_type', 'name'],
             key: 'benefit_type',
             render: (text) => text || '—',
@@ -344,10 +593,10 @@ const Benefits = () => {
             render: (date) => date ? dayjs(date).format('MMM D, YYYY') : '—',
         },
         {
-            title: 'Status',
+            title: renderFilterTitle('Status', statusOptions, statusFilter, setStatusFilter),
             dataIndex: 'status',
             key: 'status',
-            width: 100,
+            width: 120,
             render: (status) => getStatusTag(status),
         },
         {
@@ -499,6 +748,90 @@ const Benefits = () => {
         },
     ];
 
+    // Render active filter tags
+    const renderActiveFilters = () => {
+        const tags = [];
+
+        statusFilter.forEach(s => {
+            tags.push(
+                <Tag
+                    key={`status-${s}`}
+                    closable
+                    onClose={() => handleRemoveFilter('status', s)}
+                    color="blue"
+                    style={{ marginBottom: 4 }}
+                >
+                    Status: {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Tag>
+            );
+        });
+
+        typeFilter.forEach(id => {
+            const t = benefitTypes.find(bt => bt.id === id);
+            tags.push(
+                <Tag
+                    key={`type-${id}`}
+                    closable
+                    onClose={() => handleRemoveFilter('type', id)}
+                    color="purple"
+                    style={{ marginBottom: 4 }}
+                >
+                    Type: {t?.name || id}
+                </Tag>
+            );
+        });
+
+        barangayFilter.forEach(id => {
+            const b = (filterOptions.barangays || []).find(br => br.id === id);
+            tags.push(
+                <Tag
+                    key={`brgy-${id}`}
+                    closable
+                    onClose={() => handleRemoveFilter('barangay', id)}
+                    color="green"
+                    style={{ marginBottom: 4 }}
+                >
+                    Barangay: {b?.name || id}
+                </Tag>
+            );
+        });
+
+        districtFilter.forEach(d => {
+            tags.push(
+                <Tag
+                    key={`dist-${d}`}
+                    closable
+                    onClose={() => handleRemoveFilter('district', d)}
+                    color="orange"
+                    style={{ marginBottom: 4 }}
+                >
+                    District: {d}
+                </Tag>
+            );
+        });
+
+        if (tags.length === 0) return null;
+
+        return (
+            <div style={{ marginBottom: 12 }}>
+                <Space size={[4, 4]} wrap>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Active filters:</Text>
+                    {tags}
+                    <Button
+                        type="link"
+                        size="small"
+                        danger
+                        icon={<CloseOutlined />}
+                        onClick={handleClearAllFilters}
+                        style={{ fontSize: 12, padding: '0 4px' }}
+                    >
+                        Clear All
+                    </Button>
+                </Space>
+            </div>
+        );
+    };
+
     return (
         <div style={{ padding: 24 }}>
             <Title level={2} style={{ marginBottom: 24 }}>
@@ -506,7 +839,7 @@ const Benefits = () => {
                 Benefits Eligibility and Claims
             </Title>
 
-            {/* Statistics Cards */}
+            {/* Statistics Cards — dynamic to filters */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={12} sm={8} md={4}>
                     <Card size="small">
@@ -547,17 +880,8 @@ const Benefits = () => {
                         />
                     </Card>
                 </Col>
-                <Col xs={12} sm={8} md={4}>
-                    <Card size="small">
-                        <Statistic
-                            title="Eligible Unclaimed"
-                            value={statistics.eligible_unclaimed || 0}
-                            valueStyle={{ color: '#722ed1' }}
-                            prefix={<UserOutlined />}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={12} sm={8} md={4}>
+
+                <Col xs={12} sm={8} md={8}>
                     <Card size="small">
                         <Statistic
                             title="Total Released (₱)"
@@ -576,76 +900,48 @@ const Benefits = () => {
                         tab={
                             <span>
                                 <GiftOutlined />
-                                Claims ({statistics.total_claims || 0})
+                                Claims ({pagination.total || 0})
                             </span>
                         }
                         key="claims"
                     >
-                        {/* Filters */}
-                        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                            <Col xs={24} sm={12} md={6}>
+                        {/* Search + Date Range + Export */}
+                        <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+                            <Col xs={24} sm={12} md={7}>
                                 <Input
                                     placeholder="Search by name or OSCA ID"
                                     prefix={<SearchOutlined />}
-                                    value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
+                                    defaultValue={searchText}
+                                    onChange={handleSearchChange}
                                     allowClear
                                 />
                             </Col>
-                            <Col xs={12} sm={6} md={4}>
-                                <Select
-                                    placeholder="Status"
-                                    value={statusFilter}
-                                    onChange={setStatusFilter}
+                            <Col xs={24} sm={12} md={8}>
+                                <RangePicker
+                                    value={dateRange}
+                                    onChange={(dates) => {
+                                        setDateRange(dates);
+                                        setPagination(prev => ({ ...prev, current: 1 }));
+                                    }}
+                                    style={{ width: '100%' }}
+                                    format="MMM D, YYYY"
                                     allowClear
-                                    style={{ width: '100%' }}
-                                >
-                                    <Select.Option value="">All Status</Select.Option>
-                                    <Select.Option value="pending">Pending</Select.Option>
-                                    <Select.Option value="approved">Approved</Select.Option>
-                                    <Select.Option value="released">Released</Select.Option>
-                                    <Select.Option value="rejected">Rejected</Select.Option>
-                                </Select>
+                                    placeholder={['Start date', 'End date']}
+                                />
                             </Col>
-                            <Col xs={12} sm={6} md={4}>
-                                <Select
-                                    placeholder="Type"
-                                    value={typeFilter}
-                                    onChange={setTypeFilter}
-                                    allowClear
-                                    style={{ width: '100%' }}
-                                >
-                                    <Select.Option value="">All Types</Select.Option>
-                                    {benefitTypes.map((type) => (
-                                        <Select.Option key={type.id} value={type.id}>
-                                            {type.name}
-                                        </Select.Option>
-                                    ))}
-                                </Select>
-                            </Col>
-                            <Col xs={12} sm={6} md={3}>
-                                <Select
-                                    value={yearFilter}
-                                    onChange={setYearFilter}
-                                    style={{ width: '100%' }}
-                                >
-                                    {[currentYear, currentYear - 1, currentYear - 2].map((year) => (
-                                        <Select.Option key={year} value={year}>
-                                            {year}
-                                        </Select.Option>
-                                    ))}
-                                </Select>
-                            </Col>
-                            <Col xs={12} sm={6} md={3}>
+                            <Col xs={24} sm={12} md={3}>
                                 <Button
                                     icon={<DownloadOutlined />}
                                     onClick={handleExport}
                                     style={{ width: '100%' }}
                                 >
-                                    Export CSV
+                                    Export
                                 </Button>
                             </Col>
                         </Row>
+
+                        {/* Active filter tags */}
+                        {renderActiveFilters()}
 
                         <Table
                             columns={claimsColumns}
@@ -659,7 +955,8 @@ const Benefits = () => {
                                 onChange: (page, pageSize) =>
                                     setPagination({ ...pagination, current: page, pageSize }),
                             }}
-                            scroll={{ x: 1400 }}
+                            scroll={{ x: 1600 }}
+                            size="middle"
                         />
                     </TabPane>
 

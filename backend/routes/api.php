@@ -165,6 +165,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/claims/export', [\App\Http\Controllers\Api\BenefitController::class, 'exportClaims']);
         Route::get('/eligible', [\App\Http\Controllers\Api\BenefitController::class, 'eligible']);
         Route::get('/eligible/export', [\App\Http\Controllers\Api\BenefitController::class, 'exportEligible']);
+        Route::get('/filter-options', [\App\Http\Controllers\Api\BenefitController::class, 'filterOptions']);
         Route::get('/statistics', [\App\Http\Controllers\Api\BenefitController::class, 'statistics']);
         Route::get('/distribution', [\App\Http\Controllers\Api\BenefitController::class, 'typeDistribution']);
         Route::post('/claims', [\App\Http\Controllers\Api\BenefitController::class, 'store']);
