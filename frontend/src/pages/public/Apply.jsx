@@ -999,13 +999,7 @@ const Apply = () => {
                                         </Col>
                                     </Row>
 
-                                    <Row gutter={16}>
-                                        <Col xs={24} sm={12}>
-                                            <Form.Item name="other_skills" label="Other Skills">
-                                                <Input placeholder="Additional skills" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
+                                    {/* Other Skills intentionally hidden in pre-registration UI */}
                                 </div>
                             )}
 
@@ -1320,10 +1314,7 @@ const Apply = () => {
                                                 <Text type="secondary">Occupation</Text>
                                                 <div><Text strong>{formData.occupation || '-'}</Text></div>
                                             </Col>
-                                            <Col xs={12}>
-                                                <Text type="secondary">Other Skills</Text>
-                                                <div><Text strong>{formData.other_skills || '-'}</Text></div>
-                                            </Col>
+                                            {/* Other Skills intentionally hidden in pre-registration review */}
                                         </Row>
 
                                         {familyMembers.filter(m => m.first_name).length > 0 && (
