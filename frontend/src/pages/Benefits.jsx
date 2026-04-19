@@ -45,7 +45,6 @@ import {
 } from '@ant-design/icons';
 import { benefitsApi } from '../services/api';
 import dayjs from 'dayjs';
-import { useAuth } from '../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -55,11 +54,6 @@ const ColumnFilterPopover = ({ title, options, selected, onChange, labelKey = 'l
     const [search, setSearch] = useState('');
     const [tempSelected, setTempSelected] = useState(selected || []);
     const [open, setOpen] = useState(false);
-
-    // Sync when parent changes
-    useEffect(() => {
-        setTempSelected(selected || []);
-    }, [selected]);
 
     const filtered = options.filter((o) => {
         const label = typeof o === 'string' ? o : o[labelKey];
@@ -175,9 +169,6 @@ const ColumnFilterPopover = ({ title, options, selected, onChange, labelKey = 'l
 };
 
 const Benefits = () => {
-    const { user } = useAuth();
-    const isMainAdmin = user?.role_id === 1;
-
     // State
     const [activeTab, setActiveTab] = useState('claims');
     const [loading, setLoading] = useState(false);
@@ -189,7 +180,7 @@ const Benefits = () => {
     const [eligiblePagination, setEligiblePagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
     // Filter options from API
-    const [filterOptions, setFilterOptions] = useState({ barangays: [], districts: [] });
+    const [filterOptions, setFilterOptions] = useState({ barangays: [], districts: [], genders: [] });
 
     // Senior History Modal
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
@@ -201,6 +192,7 @@ const Benefits = () => {
     const [typeFilter, setTypeFilter] = useState([]);
     const [barangayFilter, setBarangayFilter] = useState([]);
     const [districtFilter, setDistrictFilter] = useState([]);
+    const [genderFilter, setGenderFilter] = useState([]);
     const [dateRange, setDateRange] = useState([dayjs().startOf('year'), dayjs()]);
     const [searchText, setSearchText] = useState('');
 
@@ -208,6 +200,7 @@ const Benefits = () => {
     const [eligibleSearch, setEligibleSearch] = useState('');
     const [eligibleBarangayFilter, setEligibleBarangayFilter] = useState([]);
     const [eligibleTypeFilter, setEligibleTypeFilter] = useState([]);
+    const [eligibleGenderFilter, setEligibleGenderFilter] = useState([]);
     const [eligibleMinAge, setEligibleMinAge] = useState(null);
     const [eligibleMaxAge, setEligibleMaxAge] = useState(null);
     const [eligibleMinAmount, setEligibleMinAmount] = useState(null);
@@ -223,13 +216,14 @@ const Benefits = () => {
         if (typeFilter.length > 0) params.benefit_type_id = typeFilter.join(',');
         if (barangayFilter.length > 0) params.barangay_ids = barangayFilter.join(',');
         if (districtFilter.length > 0) params.district = districtFilter.join(',');
+        if (genderFilter.length > 0) params.gender_id = genderFilter.join(',');
         if (dateRange && dateRange[0] && dateRange[1]) {
             params.date_from = dateRange[0].format('YYYY-MM-DD');
             params.date_to = dateRange[1].format('YYYY-MM-DD');
         }
         if (searchText) params.search = searchText;
         return params;
-    }, [statusFilter, typeFilter, barangayFilter, districtFilter, dateRange, searchText]);
+    }, [statusFilter, typeFilter, barangayFilter, districtFilter, genderFilter, dateRange, searchText]);
 
     // Initial load
     useEffect(() => {
@@ -244,7 +238,7 @@ const Benefits = () => {
         } else {
             fetchEligible();
         }
-    }, [activeTab, statusFilter, typeFilter, barangayFilter, districtFilter, dateRange, searchText, pagination.current, pagination.pageSize, eligiblePagination.current, eligibleSearch, eligibleTypeFilter, eligibleBarangayFilter, eligibleMinAge, eligibleMaxAge, eligibleMinAmount, eligibleMaxAmount]);
+    }, [activeTab, statusFilter, typeFilter, barangayFilter, districtFilter, genderFilter, dateRange, searchText, pagination.current, pagination.pageSize, eligiblePagination.current, eligibleSearch, eligibleTypeFilter, eligibleBarangayFilter, eligibleGenderFilter, eligibleMinAge, eligibleMaxAge, eligibleMinAmount, eligibleMaxAmount]);
 
     // Fetch statistics whenever filters change
     useEffect(() => {
@@ -263,7 +257,7 @@ const Benefits = () => {
     const fetchFilterOptions = async () => {
         try {
             const response = await benefitsApi.getFilterOptions();
-            setFilterOptions(response.data.data || { barangays: [], districts: [] });
+            setFilterOptions(response.data.data || { barangays: [], districts: [], genders: [] });
         } catch (error) {
             console.error('Failed to fetch filter options:', error);
         }
@@ -312,6 +306,7 @@ const Benefits = () => {
             if (eligibleSearch) params.search = eligibleSearch;
             if (eligibleTypeFilter.length > 0) params.benefit_type_id = eligibleTypeFilter.join(',');
             if (eligibleBarangayFilter.length > 0) params.barangay_ids = eligibleBarangayFilter.join(',');
+            if (eligibleGenderFilter.length > 0) params.gender_id = eligibleGenderFilter.join(',');
             if (eligibleMinAge) params.min_age = eligibleMinAge;
             if (eligibleMaxAge) params.max_age = eligibleMaxAge;
             if (eligibleMinAmount) params.min_amount = eligibleMinAmount;
@@ -363,6 +358,7 @@ const Benefits = () => {
             if (eligibleSearch) params.search = eligibleSearch;
             if (eligibleTypeFilter.length > 0) params.benefit_type_id = eligibleTypeFilter.join(',');
             if (eligibleBarangayFilter.length > 0) params.barangay_ids = eligibleBarangayFilter.join(',');
+            if (eligibleGenderFilter.length > 0) params.gender_id = eligibleGenderFilter.join(',');
             if (eligibleMinAge) params.min_age = eligibleMinAge;
             if (eligibleMaxAge) params.max_age = eligibleMaxAge;
             if (eligibleMinAmount) params.min_amount = eligibleMinAmount;
@@ -495,6 +491,9 @@ const Benefits = () => {
             case 'district':
                 setDistrictFilter(prev => prev.filter(v => v !== value));
                 break;
+            case 'gender':
+                setGenderFilter(prev => prev.filter(v => v !== value));
+                break;
             default:
                 break;
         }
@@ -506,12 +505,13 @@ const Benefits = () => {
         setTypeFilter([]);
         setBarangayFilter([]);
         setDistrictFilter([]);
+        setGenderFilter([]);
         setDateRange([dayjs().startOf('year'), dayjs()]);
         setSearchText('');
         setPagination(prev => ({ ...prev, current: 1 }));
     };
 
-    const hasActiveFilters = statusFilter.length > 0 || typeFilter.length > 0 || barangayFilter.length > 0 || districtFilter.length > 0;
+    const hasActiveFilters = statusFilter.length > 0 || typeFilter.length > 0 || barangayFilter.length > 0 || districtFilter.length > 0 || genderFilter.length > 0;
 
     // Filter option lists
     const statusOptions = [
@@ -532,6 +532,16 @@ const Benefits = () => {
         label: d,
         value: d,
     }));
+
+    const genderOptions = (filterOptions.genders || []).map(g => ({
+        label: g.name,
+        value: g.id,
+    }));
+
+    const getGenderLabel = (genderId) => {
+        if (!genderId) return '—';
+        return genderOptions.find((g) => g.value === genderId)?.label || '—';
+    };
 
     // Helper to render column title with filter icon
     const renderFilterTitle = (label, options, selected, onApply) => (
@@ -561,9 +571,9 @@ const Benefits = () => {
                     <Space>
                         <Avatar
                             style={{
-                                backgroundColor: senior.gender_id === 1 ? '#1890ff' : '#eb2f96'
+                                backgroundColor: senior.gender_id === 1 ? '#1890ff' : senior.gender_id === 2 ? '#eb2f96' : '#8c8c8c'
                             }}
-                            icon={senior.gender_id === 1 ? <ManOutlined /> : <WomanOutlined />}
+                            icon={senior.gender_id === 1 ? <ManOutlined /> : senior.gender_id === 2 ? <WomanOutlined /> : <UserOutlined />}
                         />
                         <div>
                             <Text strong>{senior.full_name || `${senior.first_name || ''} ${senior.last_name || ''}`}</Text>
@@ -586,6 +596,12 @@ const Benefits = () => {
             key: 'district',
             dataIndex: ['senior', 'barangay', 'district'],
             render: (text) => text || '—',
+        },
+        {
+            title: renderFilterTitle('Gender', genderOptions, genderFilter, setGenderFilter),
+            key: 'gender',
+            dataIndex: ['senior', 'gender_id'],
+            render: (genderId) => getGenderLabel(genderId),
         },
         {
             title: renderFilterTitle('Benefit Type', typeOptions, typeFilter, setTypeFilter),
@@ -733,6 +749,15 @@ const Benefits = () => {
             render: (age) => age,
         },
         {
+            title: renderFilterTitle('Gender', genderOptions, eligibleGenderFilter, (values) => {
+                setEligibleGenderFilter(values);
+                setEligiblePagination(prev => ({ ...prev, current: 1 }));
+            }),
+            dataIndex: 'gender_id',
+            key: 'gender',
+            render: (genderId) => getGenderLabel(genderId),
+        },
+        {
             title: renderFilterTitle('Barangay', eligibleBarangayOptions, eligibleBarangayFilter, (values) => {
                 setEligibleBarangayFilter(values);
                 setEligiblePagination(prev => ({ ...prev, current: 1 }));
@@ -846,7 +871,22 @@ const Benefits = () => {
             );
         });
 
-        if (tags.length === 0) return null;
+        genderFilter.forEach(id => {
+            const g = (filterOptions.genders || []).find((gender) => gender.id === id);
+            tags.push(
+                <Tag
+                    key={`gender-${id}`}
+                    closable
+                    onClose={() => handleRemoveFilter('gender', id)}
+                    color="magenta"
+                    style={{ marginBottom: 4 }}
+                >
+                    Gender: {g?.name || id}
+                </Tag>
+            );
+        });
+
+        if (!hasActiveFilters || tags.length === 0) return null;
 
         return (
             <div style={{ marginBottom: 12 }}>
@@ -1084,7 +1124,7 @@ const Benefits = () => {
                         </Row>
 
                         {/* Active eligible filter tags */}
-                        {(eligibleBarangayFilter.length > 0 || eligibleTypeFilter.length > 0 || eligibleMinAge || eligibleMaxAge || eligibleMinAmount || eligibleMaxAmount) && (
+                        {(eligibleBarangayFilter.length > 0 || eligibleTypeFilter.length > 0 || eligibleGenderFilter.length > 0 || eligibleMinAge || eligibleMaxAge || eligibleMinAmount || eligibleMaxAmount) && (
                             <div style={{ marginBottom: 12 }}>
                                 <Space size={[4, 4]} wrap>
                                     <Text type="secondary" style={{ fontSize: 12 }}>Active filters:</Text>
@@ -1104,6 +1144,14 @@ const Benefits = () => {
                                             </Tag>
                                         );
                                     })}
+                                    {eligibleGenderFilter.map(id => {
+                                        const g = (filterOptions.genders || []).find((gender) => gender.id === id);
+                                        return (
+                                            <Tag key={`e-gender-${id}`} closable onClose={() => setEligibleGenderFilter(prev => prev.filter(v => v !== id))} color="magenta" style={{ marginBottom: 4 }}>
+                                                Gender: {g?.name || id}
+                                            </Tag>
+                                        );
+                                    })}
                                     {eligibleMinAge && <Tag closable onClose={() => setEligibleMinAge(null)} color="cyan" style={{ marginBottom: 4 }}>Min Age: {eligibleMinAge}</Tag>}
                                     {eligibleMaxAge && <Tag closable onClose={() => setEligibleMaxAge(null)} color="cyan" style={{ marginBottom: 4 }}>Max Age: {eligibleMaxAge}</Tag>}
                                     {eligibleMinAmount && <Tag closable onClose={() => setEligibleMinAmount(null)} color="gold" style={{ marginBottom: 4 }}>Min ₱{eligibleMinAmount.toLocaleString()}</Tag>}
@@ -1116,6 +1164,7 @@ const Benefits = () => {
                                         onClick={() => {
                                             setEligibleBarangayFilter([]);
                                             setEligibleTypeFilter([]);
+                                            setEligibleGenderFilter([]);
                                             setEligibleMinAge(null);
                                             setEligibleMaxAge(null);
                                             setEligibleMinAmount(null);

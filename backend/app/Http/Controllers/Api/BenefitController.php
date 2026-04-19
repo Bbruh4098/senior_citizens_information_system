@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BenefitClaim;
 use App\Models\BenefitType;
+use App\Models\Gender;
 use App\Models\SeniorCitizen;
 use App\Traits\LogsAudit;
 use Illuminate\Http\Request;
@@ -77,6 +78,17 @@ class BenefitController extends Controller
             if (!empty($districts)) {
                 $query->whereHas('senior.barangay', function ($q) use ($districts) {
                     $q->whereIn('district', $districts);
+                });
+            }
+        }
+
+        // Filter by gender IDs
+        if ($genderId = $request->get('gender_id')) {
+            $genderIds = is_array($genderId) ? $genderId : explode(',', $genderId);
+            $genderIds = array_filter(array_map('trim', $genderIds));
+            if (!empty($genderIds)) {
+                $query->whereHas('senior', function ($q) use ($genderIds) {
+                    $q->whereIn('gender_id', $genderIds);
                 });
             }
         }
@@ -232,6 +244,13 @@ class BenefitController extends Controller
             $barangayIds = array_filter(array_map('trim', $barangayIds));
         }
 
+        // Gender filter
+        $genderIds = $request->get('gender_id');
+        if ($genderIds) {
+            $genderIds = is_array($genderIds) ? $genderIds : explode(',', $genderIds);
+            $genderIds = array_filter(array_map('trim', $genderIds));
+        }
+
         // Build query for seniors who are eligible but haven't claimed
         $eligibleSeniors = [];
 
@@ -254,6 +273,11 @@ class BenefitController extends Controller
             // Apply barangay filter
             if (!empty($barangayIds)) {
                 $query->whereIn('barangay_id', $barangayIds);
+            }
+
+            // Apply gender filter
+            if (!empty($genderIds)) {
+                $query->whereIn('gender_id', $genderIds);
             }
 
             // Cumulative eligibility: age >= min_age (birthdate <= maxBirthdate for that min_age)
@@ -308,6 +332,7 @@ class BenefitController extends Controller
                     'osca_id' => $senior->osca_id,
                     'full_name' => $senior->full_name ?? "{$senior->first_name} {$senior->last_name}",
                     'age' => $senior->age,
+                    'gender_id' => $senior->gender_id,
                     'barangay' => $senior->barangay?->name,
                     'barangay_id' => $senior->barangay_id,
                     'benefit_type_id' => $benefitType->id,
@@ -375,6 +400,13 @@ class BenefitController extends Controller
             $barangayIds = array_filter(array_map('trim', $barangayIds));
         }
 
+        // Gender filter
+        $genderIds = $request->get('gender_id');
+        if ($genderIds) {
+            $genderIds = is_array($genderIds) ? $genderIds : explode(',', $genderIds);
+            $genderIds = array_filter(array_map('trim', $genderIds));
+        }
+
         $eligibleSeniors = [];
 
         foreach ($benefitTypes as $benefitType) {
@@ -394,6 +426,11 @@ class BenefitController extends Controller
             // Apply barangay filter
             if (!empty($barangayIds)) {
                 $query->whereIn('barangay_id', $barangayIds);
+            }
+
+            // Apply gender filter
+            if (!empty($genderIds)) {
+                $query->whereIn('gender_id', $genderIds);
             }
 
             $maxBirthdate = now()->subYears($benefitType->min_age)->endOfYear();
@@ -515,6 +552,15 @@ class BenefitController extends Controller
                     }
                 }
 
+                // Apply gender filter to eligible count
+                if ($genderId = $request->get('gender_id')) {
+                    $genderIds = is_array($genderId) ? $genderId : explode(',', $genderId);
+                    $genderIds = array_filter(array_map('trim', $genderIds));
+                    if (!empty($genderIds)) {
+                        $query->whereIn('gender_id', $genderIds);
+                    }
+                }
+
                 $minBirthdate = now()->subYears($benefitType->max_age ?? 150)->startOfYear();
                 $maxBirthdate = now()->subYears($benefitType->min_age)->endOfYear();
 
@@ -560,11 +606,18 @@ class BenefitController extends Controller
         // Get distinct districts
         $districts = $barangays->pluck('district')->filter()->unique()->sort()->values();
 
+        // Get enabled genders for dynamic filter options
+        $genders = Gender::where('is_enabled', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'name']);
+
         return response()->json([
             'success' => true,
             'data' => [
                 'barangays' => $barangays,
                 'districts' => $districts,
+                'genders' => $genders,
             ],
         ]);
     }
