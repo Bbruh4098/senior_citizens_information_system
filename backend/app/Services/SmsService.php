@@ -69,6 +69,7 @@ class SmsService
             $result = match ($provider) {
                 'twilio' => $this->sendViaTwilio($phoneNumber, $message),
                 'semaphore' => $this->sendViaSemaphore($phoneNumber, $message),
+                'unisms' => $this->sendViaUniSms($phoneNumber, $message),
                 default => ['success' => false, 'error' => "Unknown provider: {$provider}"],
             };
 
@@ -170,6 +171,30 @@ class SmsService
         return [
             'success' => false,
             'error' => is_array($data) && isset($data[0]) ? json_encode($data[0]) : ($data['message'] ?? $response->body()),
+            'response' => $data,
+        ];
+    }
+
+    //Send via UniSMS
+    private function sendViaUniSms(string $phoneNumber, string $message): array
+    {
+        $apiKey = SmsSetting::getValue('unisms_api_key');
+
+        $response = Http::withBasicAuth($apiKey, '')
+            ->post('https://unismsapi.com/api/sms', [
+                'recipient' => $this->toE164($phoneNumber),
+                'content' => $message,
+            ]);
+
+        $data = $response->json();
+
+        if ($response->successful() && isset($data['message']['reference_id'])) {
+            return ['success' => true, 'response' => $data];
+        }
+
+        return [
+            'success' => false,
+            'error' => $data['error'] ?? $data['message'] ?? $response->body(),
             'response' => $data,
         ];
     }

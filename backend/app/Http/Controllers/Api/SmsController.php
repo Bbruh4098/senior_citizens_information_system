@@ -33,6 +33,9 @@ class SmsController extends Controller
         if (!empty($masked['semaphore_api_key'])) {
             $masked['semaphore_api_key'] = str_repeat('•', 8) . substr($masked['semaphore_api_key'], -4);
         }
+        if (!empty($masked['unisms_api_key'])) {
+            $masked['unisms_api_key'] = str_repeat('•', 8) . substr($masked['unisms_api_key'], -4);
+        }
 
         // Add status info
         $masked['is_configured'] = SmsSetting::isConfigured();
@@ -59,6 +62,7 @@ class SmsController extends Controller
             'twilio_phone_number',
             'semaphore_api_key',
             'semaphore_sender_name',
+            'unisms_api_key',
             'globe_app_id',
             'globe_app_secret',
             'globe_shortcode',
@@ -74,7 +78,7 @@ class SmsController extends Controller
         foreach ($request->settings as $key => $value) {
             if (in_array($key, $allowedKeys)) {
                 // Don't update masked values
-                if (in_array($key, ['globe_app_secret', 'globe_access_token', 'twilio_auth_token', 'semaphore_api_key']) && str_contains($value, '•')) {
+                if (in_array($key, ['globe_app_secret', 'globe_access_token', 'twilio_auth_token', 'semaphore_api_key', 'unisms_api_key']) && str_contains($value, '•')) {
                     continue;
                 }
                 SmsSetting::setValue($key, $value);

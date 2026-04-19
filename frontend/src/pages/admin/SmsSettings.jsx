@@ -66,6 +66,7 @@ const SmsSettings = () => {
                 twilio_phone_number: d.twilio_phone_number || '',
                 semaphore_api_key: d.semaphore_api_key || '',
                 semaphore_sender_name: d.semaphore_sender_name || '',
+                unisms_api_key: d.unisms_api_key || '',
                 otp_message_template: d.otp_message_template || '',
                 reference_message_template: d.reference_message_template || '',
                 max_otp_per_hour: parseInt(d.max_otp_per_hour) || 3,
@@ -122,6 +123,7 @@ const SmsSettings = () => {
                 twilio_phone_number: values.twilio_phone_number,
                 semaphore_api_key: values.semaphore_api_key,
                 semaphore_sender_name: values.semaphore_sender_name,
+                unisms_api_key: values.unisms_api_key,
                 otp_message_template: values.otp_message_template,
                 reference_message_template: values.reference_message_template,
                 max_otp_per_hour: String(values.max_otp_per_hour),
@@ -246,6 +248,7 @@ const SmsSettings = () => {
                 <Card title="SMS Provider" size="small" style={{ marginBottom: 16 }}>
                     <Form.Item name="sms_provider" label="Active Provider">
                         <Select>
+                            <Select.Option value="unisms">UniSMS (Philippines)</Select.Option>
                             <Select.Option value="twilio">Twilio (Trial / Global)</Select.Option>
                             <Select.Option value="semaphore">Semaphore (Philippines)</Select.Option>
                         </Select>
@@ -254,21 +257,6 @@ const SmsSettings = () => {
                     {/* Twilio Credentials */}
                     {(selectedProvider === 'twilio' || (!selectedProvider && (settings.sms_provider || 'twilio') === 'twilio')) && (
                         <>
-                            {/* <Alert
-                                message="Twilio Setup"
-                                description={
-                                    <ol style={{ paddingLeft: 20, margin: '8px 0' }}>
-                                        <li>Go to <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer">console.twilio.com</a> and sign up / log in</li>
-                                        <li>Copy your <strong>Account SID</strong> and <strong>Auth Token</strong> from the dashboard</li>
-                                        <li>Copy your <strong>Twilio phone number</strong> (e.g. +1234567890)</li>
-                                        <li>On trial, you can only send to <strong>verified numbers</strong> — add yours in <em>Phone Numbers → Verified Caller IDs</em></li>
-                                    </ol>
-                                }
-                                type="info"
-                                showIcon
-                                icon={<InfoCircleOutlined />}
-                                style={{ marginBottom: 16 }}
-                            /> */}
                             <Row gutter={16}>
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="twilio_account_sid" label="Account SID">
@@ -302,20 +290,6 @@ const SmsSettings = () => {
                     {/* Semaphore Credentials */}
                     {selectedProvider === 'semaphore' && (
                         <>
-                            <Alert
-                                message="Semaphore Setup"
-                                description={
-                                    <ol style={{ paddingLeft: 20, margin: '8px 0' }}>
-                                        <li>Go to <a href="https://semaphore.co" target="_blank" rel="noopener noreferrer">semaphore.co</a> and create an account</li>
-                                        <li>Copy your <strong>API Key</strong> from your dashboard</li>
-                                        <li>Semaphore works with all PH networks (Globe, Smart, DITO) at ₱0.50/SMS</li>
-                                    </ol>
-                                }
-                                type="info"
-                                showIcon
-                                icon={<InfoCircleOutlined />}
-                                style={{ marginBottom: 16 }}
-                            />
                             <Row gutter={16}>
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="semaphore_api_key" label="API Key">

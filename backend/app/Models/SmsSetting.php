@@ -50,6 +50,7 @@ class SmsSetting extends Model
                 && !empty(static::getValue('twilio_auth_token'))
                 && !empty(static::getValue('twilio_phone_number')),
             'semaphore' => !empty(static::getValue('semaphore_api_key')),
+            'unisms' => !empty(static::getValue('unisms_api_key')),
             default => false,
         };
     }
