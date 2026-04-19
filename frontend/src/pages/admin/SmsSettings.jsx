@@ -315,11 +315,36 @@ const SmsSettings = () => {
                         </>
                     )}
 
+                    {/* UniSMS Credentials */}
+                    {selectedProvider === 'unisms' && (
+                        <>
+                            <Row gutter={16}>
+                                <Col xs={24} sm={24}>
+                                    <Form.Item
+                                        name="unisms_api_key"
+                                        label={
+                                            <span>
+                                                UniSMS API Key{' '}
+                                                <Tooltip title="Get this from your UniSMS dashboard (Settings -> API Keys)">
+                                                    <InfoCircleOutlined />
+                                                </Tooltip>
+                                            </span>
+                                        }
+                                    >
+                                        <Input.Password placeholder="Your UniSMS API Key" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        </>
+                    )}
+
                     {/* Status indicator */}
                     <div style={{ marginTop: 8 }}>
                         {settings.is_configured ? (
                             <Tag icon={<CheckCircleOutlined />} color="success">
-                                {(selectedProvider || settings.sms_provider || 'twilio').charAt(0).toUpperCase() + (selectedProvider || settings.sms_provider || 'twilio').slice(1)} configured
+                                {((selectedProvider || settings.sms_provider || 'twilio') === 'unisms' ? 'UniSMS' : 
+                                  (selectedProvider || settings.sms_provider || 'twilio').charAt(0).toUpperCase() + 
+                                  (selectedProvider || settings.sms_provider || 'twilio').slice(1))} configured
                             </Tag>
                         ) : (
                             <Tag icon={<ExclamationCircleOutlined />} color="warning">Provider not fully configured</Tag>
