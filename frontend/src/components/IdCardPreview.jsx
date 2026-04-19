@@ -25,9 +25,6 @@ const IdCardPreview = ({ cardData, onPrint, showPrintButton = true }) => {
                             size: 85.6mm 54mm;
                             margin: 0;
                         }
-                        @media print {
-                            .page-break { page-break-before: always; }
-                        }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         body {
                             margin: 0;
@@ -35,11 +32,43 @@ const IdCardPreview = ({ cardData, onPrint, showPrintButton = true }) => {
                             font-family: 'Segoe UI', Arial, sans-serif;
                             -webkit-print-color-adjust: exact;
                             print-color-adjust: exact;
+                            background: #fff;
+                        }
+                        .print-sheet {
+                            width: 85.6mm;
+                            margin: 0 auto;
+                        }
+                        @media print {
+                            html, body {
+                                width: 85.6mm;
+                                margin: 0;
+                                padding: 0;
+                                overflow: hidden;
+                            }
+                            .print-card {
+                                width: 85.6mm !important;
+                                height: 54mm !important;
+                                margin: 0 !important;
+                                border: none !important;
+                                border-radius: 0 !important;
+                                box-shadow: none !important;
+                                overflow: hidden !important;
+                                break-inside: avoid;
+                            }
+                            .print-card + .print-card {
+                                page-break-before: always;
+                                break-before: page;
+                            }
+                            .page-break {
+                                margin-top: 0 !important;
+                                page-break-before: always;
+                                break-before: page;
+                            }
                         }
                     </style>
                 </head>
                 <body>
-                    ${cardRef.current.innerHTML}
+                    <div class="print-sheet">${cardRef.current.innerHTML}</div>
                 </body>
                 </html>
             `);
@@ -64,7 +93,7 @@ const IdCardPreview = ({ cardData, onPrint, showPrintButton = true }) => {
         <div>
             <div ref={cardRef}>
                 {/* ===== FRONT SIDE ===== */}
-                <div style={styles.card}>
+                <div className="print-card id-card-front" style={styles.card}>
                     {/* Gold left sidebar */}
                     <div style={styles.leftSidebar}>
                         <span style={styles.sidebarText}>SENIOR CITIZEN ID</span>
@@ -156,7 +185,7 @@ const IdCardPreview = ({ cardData, onPrint, showPrintButton = true }) => {
                 </div>
 
                 {/* ===== BACK SIDE ===== */}
-                <div className="page-break" style={{ ...styles.card, marginTop: '16px' }}>
+                <div className="print-card id-card-back page-break" style={{ ...styles.card, marginTop: '16px' }}>
                     {/* Main back content */}
                     <div style={styles.backContent}>
                         {/* Title */}
