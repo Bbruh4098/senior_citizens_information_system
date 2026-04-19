@@ -44,6 +44,12 @@ import SeniorProfileModal from '../components/SeniorProfileModal';
 
 const { Title, Text } = Typography;
 
+const STATUS_OPTIONS = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'deceased', label: 'Deceased' },
+];
+
 const ColumnFilterPopover = ({ title, options, selected, onChange, labelKey = 'label', valueKey = 'value' }) => {
     const [search, setSearch] = useState('');
     const [tempSelected, setTempSelected] = useState(selected || []);
@@ -426,16 +432,12 @@ const Seniors = () => {
             render: (genderId) => getGenderLabel(genderId),
         },
         {
-            title: 'Registration',
-            key: 'registration_status',
-            render: (_, record) => (
-                <Tag color={record.registration_status?.code === 'approved' ? 'green' : 'blue'}>
-                    {record.registration_status?.name || 'Pending'}
-                </Tag>
+            title: renderFilterTitle(
+                'Status',
+                STATUS_OPTIONS,
+                filters.status,
+                (values) => handleMultiFilterChange('status', values)
             ),
-        },
-        {
-            title: 'Status',
             key: 'status',
             render: (_, record) => getStatusTag(record),
         },
