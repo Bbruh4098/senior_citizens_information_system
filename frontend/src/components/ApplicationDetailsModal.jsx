@@ -105,9 +105,17 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
         }
     };
 
-    const handlePreview = (imagePath) => {
-        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
-        setPreviewImage(`${baseUrl}/storage/${imagePath}`);
+    const getStorageUrl = (filePath) => {
+        if (!filePath) return '';
+        if (filePath.startsWith('http')) return filePath;
+        // Derive backend base URL from API URL
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+        const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+        return `${baseUrl}/storage/${filePath}`;
+    };
+
+    const handlePreview = (filePath) => {
+        setPreviewImage(getStorageUrl(filePath));
     };
 
     // Sir Jaydee's comment: Relabeling status for display
@@ -559,22 +567,44 @@ function ApplicationDetailsModal({ visible, applicationId, onClose }) {
                 {/* Additional uploaded documents */}
                 {documents.length > 0 && (
                     <Card size="small" title="All Uploaded Documents" style={{ marginTop: 16 }}>
-                        <Space wrap>
-                            {documents.map((doc, index) => (
-                                <Card
-                                    key={index}
-                                    size="small"
-                                    style={{ width: 120, textAlign: 'center' }}
-                                    hoverable
-                                    onClick={() => doc.file_path && handlePreview(doc.file_path)}
-                                >
-                                    <FileImageOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                                    <div style={{ marginTop: 8, fontSize: 12 }}>
-                                        {doc.document_type_name || `Doc ${index + 1}`}
-                                    </div>
-                                </Card>
-                            ))}
-                        </Space>
+                        <Image.PreviewGroup>
+                            <Space wrap>
+                                {documents.map((doc, index) => {
+                                    const url = doc.url || getStorageUrl(doc.file_path);
+                                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_path || '');
+                                    return (
+                                        <Card
+                                            key={index}
+                                            size="small"
+                                            style={{ width: 120, textAlign: 'center', overflow: 'hidden' }}
+                                            hoverable
+                                            bodyStyle={{ padding: 8 }}
+                                        >
+                                            {isImage ? (
+                                                <Image
+                                                    src={url}
+                                                    alt={doc.original_filename || `Doc ${index + 1}`}
+                                                    width={100}
+                                                    height={80}
+                                                    style={{ objectFit: 'cover', borderRadius: 4 }}
+                                                    fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjgwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iODAiIGZpbGw9IiNmNWY1ZjUiLz48dGV4dCB4PSI1MCIgeT0iNDAiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNjY2MiPk5vIGltYWdlPC90ZXh0Pjwvc3ZnPg=="
+                                                />
+                                            ) : (
+                                                <div
+                                                    style={{ cursor: 'pointer', padding: '10px 0' }}
+                                                    onClick={() => window.open(url, '_blank')}
+                                                >
+                                                    <FileImageOutlined style={{ fontSize: 32, color: '#1890ff' }} />
+                                                </div>
+                                            )}
+                                            <div style={{ marginTop: 4, fontSize: 11, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {doc.original_filename || doc.document_type_name || `Doc ${index + 1}`}
+                                            </div>
+                                        </Card>
+                                    );
+                                })}
+                            </Space>
+                        </Image.PreviewGroup>
                     </Card>
                 )}
             </div>
