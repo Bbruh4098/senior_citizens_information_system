@@ -222,34 +222,100 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('id');
 
-        // Filter params
-        $status = $request->get('status', 'active');
-        $genderId = $request->get('gender_id');
-        $ageCategory = $request->get('age_category');
+        // Filter params (single or multi via CSV/array)
+        $statusRaw = $request->get('status', 'active');
+        $genderRaw = $request->get('gender_id');
+        $ageRaw = $request->get('age_category');
+        $districtRaw = $request->get('district');
+        $barangayRaw = $request->get('barangay_ids');
+        $minAge = $request->filled('min_age') ? (int) $request->get('min_age') : null;
+        $maxAge = $request->filled('max_age') ? (int) $request->get('max_age') : null;
 
-        // Base conditions: status + access scope
-        $applyBase = function ($q) use ($user, $barangayIds, $status) {
-            if ($status === 'active') {
-                $q->where('is_active', true)->where('is_deceased', false);
-            } elseif ($status === 'deceased') {
-                $q->where('is_deceased', true);
+        $statuses = is_array($statusRaw) ? $statusRaw : explode(',', (string) $statusRaw);
+        $statuses = array_values(array_filter(array_map('trim', $statuses)));
+        if (empty($statuses)) {
+            $statuses = ['active'];
+        }
+
+        $genderIds = is_array($genderRaw) ? $genderRaw : ($genderRaw ? explode(',', (string) $genderRaw) : []);
+        $genderIds = array_values(array_filter(array_map('trim', $genderIds)));
+
+        $ageCategories = is_array($ageRaw) ? $ageRaw : ($ageRaw ? explode(',', (string) $ageRaw) : []);
+        $ageCategories = array_values(array_filter(array_map('trim', $ageCategories)));
+
+        $districts = is_array($districtRaw) ? $districtRaw : ($districtRaw ? explode(',', (string) $districtRaw) : []);
+        $districts = array_values(array_filter(array_map('trim', $districts)));
+
+        $selectedBarangayIds = is_array($barangayRaw) ? $barangayRaw : ($barangayRaw ? explode(',', (string) $barangayRaw) : []);
+        $selectedBarangayIds = array_values(array_filter(array_map('trim', $selectedBarangayIds)));
+
+        // Base conditions: status + access scope + location filters
+        $applyBase = function ($q) use ($user, $barangayIds, $statuses, $districts, $selectedBarangayIds) {
+            // Status supports multi-select (active, deceased, all)
+            if (!in_array('all', $statuses, true)) {
+                $q->where(function ($statusQuery) use ($statuses) {
+                    if (in_array('active', $statuses, true)) {
+                        $statusQuery->orWhere(function ($sq) {
+                            $sq->where('is_active', true)->where('is_deceased', false);
+                        });
+                    }
+                    if (in_array('deceased', $statuses, true)) {
+                        $statusQuery->orWhere('is_deceased', true);
+                    }
+                });
             }
-            // 'all' = no status filter
+
             $q->when(!$user->isMainAdmin(), function ($sq) use ($barangayIds) {
                 $sq->whereIn('barangay_id', $barangayIds);
             });
+
+            if (!empty($districts)) {
+                $q->whereIn('barangay_id', function ($sq) use ($districts) {
+                    $sq->select('id')
+                        ->from('barangays')
+                        ->whereIn('district', $districts);
+                });
+            }
+
+            if (!empty($selectedBarangayIds)) {
+                $q->whereIn('barangay_id', $selectedBarangayIds);
+            }
         };
 
         // Age category SQL clause
-        $applyAge = function ($q) use ($ageCategory) {
-            if ($ageCategory) {
-                switch ($ageCategory) {
-                    case 'age_60_69': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69'); break;
-                    case 'age_70_79': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79'); break;
-                    case 'age_80_89': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89'); break;
-                    case 'age_90_99': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99'); break;
-                    case 'centenarian': $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100'); break;
-                }
+        $applyAge = function ($q) use ($ageCategories) {
+            if (!empty($ageCategories)) {
+                $q->where(function ($ageQuery) use ($ageCategories) {
+                    foreach ($ageCategories as $ageCategory) {
+                        switch ($ageCategory) {
+                            case 'age_60_69':
+                                $ageQuery->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 60 AND 69');
+                                break;
+                            case 'age_70_79':
+                                $ageQuery->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 70 AND 79');
+                                break;
+                            case 'age_80_89':
+                                $ageQuery->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 80 AND 89');
+                                break;
+                            case 'age_90_99':
+                                $ageQuery->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 90 AND 99');
+                                break;
+                            case 'centenarian':
+                                $ageQuery->orWhereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 100');
+                                break;
+                        }
+                    }
+                });
+            }
+        };
+
+        // Numeric age range filter (can be combined with age category filter)
+        $applyAgeRange = function ($q) use ($minAge, $maxAge) {
+            if ($minAge !== null) {
+                $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= ?', [$minAge]);
+            }
+            if ($maxAge !== null) {
+                $q->whereRaw('TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) <= ?', [$maxAge]);
             }
         };
 
@@ -258,7 +324,8 @@ class DashboardController extends Controller
             ->select('barangay_id', DB::raw('COUNT(*) as count'))
             ->where($applyBase)
             ->where($applyAge)
-            ->when($genderId, fn($q) => $q->where('gender_id', $genderId))
+            ->where($applyAgeRange)
+            ->when(!empty($genderIds), fn($q) => $q->whereIn('gender_id', $genderIds))
             ->groupBy('barangay_id')
             ->pluck('count', 'barangay_id');
 

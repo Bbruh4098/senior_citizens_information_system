@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, Spin, Typography, Row, Col, Statistic, Alert, Select } from 'antd';
+import { Card, Spin, Typography, Row, Col, Statistic, Alert, Checkbox, Popover, Empty, Input, InputNumber, Button, Divider, Space, Tag, Tooltip } from 'antd';
 import { TeamOutlined, ManOutlined, WomanOutlined, HeartOutlined, HeatMapOutlined, UserOutlined } from '@ant-design/icons';
+import { FilterOutlined, FilterFilled, SearchOutlined, CloseOutlined } from '@ant-design/icons';
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
 import { dashboardApi } from '../services/api';
 import 'leaflet/dist/leaflet.css';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 // Name mapping: DB name → GeoJSON NAME_3 (handles mismatches)
 const NAME_MAP = {
@@ -36,6 +36,128 @@ const AGE_OPTIONS = [
     { value: 'age_90_99', label: 'Nonagenarians (90-99)' },
     { value: 'centenarian', label: 'Centenarians (100+)' },
 ];
+
+const STATUS_OPTIONS = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'deceased', label: 'Deceased' },
+];
+
+const ColumnFilterPopover = ({ title, options, selected, onChange, labelKey = 'label', valueKey = 'value' }) => {
+    const [search, setSearch] = useState('');
+    const [tempSelected, setTempSelected] = useState(selected || []);
+    const [open, setOpen] = useState(false);
+
+    const filtered = options.filter((o) => {
+        const label = typeof o === 'string' ? o : o[labelKey];
+        return label?.toLowerCase().includes(search.toLowerCase());
+    });
+
+    const allValues = filtered.map((o) => (typeof o === 'string' ? o : o[valueKey]));
+    const allSelected = allValues.length > 0 && allValues.every((v) => tempSelected.includes(v));
+
+    const handleApply = () => {
+        onChange(tempSelected);
+        setOpen(false);
+    };
+
+    const handleClear = () => {
+        setTempSelected([]);
+    };
+
+    const handleSelectAll = () => {
+        if (allSelected) {
+            setTempSelected(tempSelected.filter((v) => !allValues.includes(v)));
+        } else {
+            const merged = [...new Set([...tempSelected, ...allValues])];
+            setTempSelected(merged);
+        }
+    };
+
+    const handleToggle = (value) => {
+        setTempSelected((prev) =>
+            prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+        );
+    };
+
+    const isActive = selected && selected.length > 0;
+
+    const content = (
+        <div style={{ width: 250 }}>
+            <Input
+                placeholder={`Search ${title}...`}
+                prefix={<SearchOutlined />}
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                allowClear
+                style={{ marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Button type="link" size="small" onClick={handleSelectAll} style={{ padding: 0 }}>
+                    {allSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+                <Button type="link" size="small" onClick={handleClear} style={{ padding: 0 }} danger>
+                    Clear
+                </Button>
+            </div>
+            <div style={{ maxHeight: 220, overflowY: 'auto', borderTop: '1px solid #f0f0f0', paddingTop: 6 }}>
+                {filtered.length === 0 ? (
+                    <Empty description="No options" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '8px 0' }} />
+                ) : (
+                    filtered.map((option) => {
+                        const label = typeof option === 'string' ? option : option[labelKey];
+                        const value = typeof option === 'string' ? option : option[valueKey];
+                        return (
+                            <div
+                                key={value}
+                                style={{ padding: '4px 0', cursor: 'pointer' }}
+                                onClick={() => handleToggle(value)}
+                            >
+                                <Checkbox checked={tempSelected.includes(value)}>
+                                    <Text style={{ fontSize: 13 }}>{label}</Text>
+                                </Checkbox>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+            <Divider style={{ margin: '8px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button size="small" onClick={() => { setTempSelected(selected || []); setOpen(false); }}>
+                    Cancel
+                </Button>
+                <Button type="primary" size="small" onClick={handleApply}>
+                    Apply
+                </Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <Popover
+            content={content}
+            trigger="click"
+            open={open}
+            onOpenChange={(v) => {
+                setOpen(v);
+                if (v) {
+                    setTempSelected(selected || []);
+                    setSearch('');
+                }
+            }}
+            placement="bottomLeft"
+        >
+            <Tooltip title={`Filter by ${title}`}>
+                {isActive ? (
+                    <FilterFilled style={{ color: '#1890ff', cursor: 'pointer', marginLeft: 4 }} />
+                ) : (
+                    <FilterOutlined style={{ color: '#bfbfbf', cursor: 'pointer', marginLeft: 4 }} />
+                )}
+            </Tooltip>
+        </Popover>
+    );
+};
 
 // Color from value: green (low) → yellow → orange → red (high)
 const getColor = (value, max) => {
@@ -123,20 +245,28 @@ const Heatmap = () => {
     const [geoDataCached, setGeoDataCached] = useState(null);
     const geoJsonRef = useRef(null);
 
-    // Combo filter state
-    const [statusFilter, setStatusFilter] = useState('active');
-    const [genderFilter, setGenderFilter] = useState(null); // null = All
-    const [ageFilter, setAgeFilter] = useState(null); // null = All
+    // Combo filter state (Excel-style multi-select)
+    const [statusFilter, setStatusFilter] = useState(['active']);
+    const [genderFilter, setGenderFilter] = useState([]);
+    const [ageFilter, setAgeFilter] = useState([]);
+    const [districtFilter, setDistrictFilter] = useState([]);
+    const [barangayFilter, setBarangayFilter] = useState([]);
+    const [minAgeFilter, setMinAgeFilter] = useState(null);
+    const [maxAgeFilter, setMaxAgeFilter] = useState(null);
 
     // Fetch data from API with current filters
-    const fetchData = useCallback(async (status, genderId, ageCategory) => {
+    const fetchData = useCallback(async (status, genderId, ageCategory, districts, barangays, minAge, maxAge) => {
         setLoading(true);
         setError(null);
         try {
             const params = {
-                status,
-                gender_id: genderId || undefined,
-                age_category: ageCategory || undefined,
+                status: status?.length ? status.join(',') : undefined,
+                gender_id: genderId?.length ? genderId.join(',') : undefined,
+                age_category: ageCategory?.length ? ageCategory.join(',') : undefined,
+                district: districts?.length ? districts.join(',') : undefined,
+                barangay_ids: barangays?.length ? barangays.join(',') : undefined,
+                min_age: minAge ?? undefined,
+                max_age: maxAge ?? undefined,
             };
             const promises = [dashboardApi.getHeatmapData(params)];
             // Only fetch GeoJSON once
@@ -159,8 +289,8 @@ const Heatmap = () => {
 
     // Re-fetch when any filter changes
     useEffect(() => {
-        fetchData(statusFilter, genderFilter, ageFilter);
-    }, [statusFilter, genderFilter, ageFilter, fetchData]);
+        fetchData(statusFilter, genderFilter, ageFilter, districtFilter, barangayFilter, minAgeFilter, maxAgeFilter);
+    }, [statusFilter, genderFilter, ageFilter, districtFilter, barangayFilter, minAgeFilter, maxAgeFilter, fetchData]);
 
     // Use cached geo data
     const geo = geoData || geoDataCached;
@@ -168,18 +298,59 @@ const Heatmap = () => {
     // Build current filter label
     const filterLabel = useMemo(() => {
         const parts = [];
-        if (genderFilter && apiData?.genders) {
-            const g = apiData.genders.find(g => g.id === genderFilter);
-            if (g) parts.push(g.name);
+
+        const statusLabels = STATUS_OPTIONS
+            .filter((o) => statusFilter.includes(o.value))
+            .map((o) => o.label);
+        if (statusLabels.length > 0 && statusLabels.length < STATUS_OPTIONS.length) {
+            parts.push(`Status: ${statusLabels.join(', ')}`);
         }
-        if (ageFilter) {
-            const a = AGE_OPTIONS.find(o => o.value === ageFilter);
-            if (a) parts.push(a.label);
+
+        const genderLabels = (apiData?.genders || [])
+            .filter((g) => genderFilter.includes(g.id))
+            .map((g) => g.name);
+        if (genderLabels.length > 0) {
+            parts.push(`Gender: ${genderLabels.join(', ')}`);
         }
-        const statusLabel = statusFilter === 'all' ? 'All' : statusFilter === 'active' ? 'Active' : 'Deceased';
-        if (parts.length === 0) return `${statusLabel} Seniors`;
-        return `${statusLabel} ${parts.join(' ')}`;
-    }, [genderFilter, ageFilter, statusFilter, apiData]);
+
+        const ageLabels = AGE_OPTIONS
+            .filter((o) => ageFilter.includes(o.value))
+            .map((o) => o.label);
+        if (ageLabels.length > 0) {
+            parts.push(`Age: ${ageLabels.join(', ')}`);
+        }
+
+        if (minAgeFilter !== null || maxAgeFilter !== null) {
+            const min = minAgeFilter !== null ? minAgeFilter : 60;
+            const max = maxAgeFilter !== null ? maxAgeFilter : 'up';
+            parts.push(`Age Range: ${min} - ${max}`);
+        }
+
+        if (districtFilter.length > 0) {
+            parts.push(`District: ${districtFilter.join(', ')}`);
+        }
+
+        const barangayLabels = (apiData?.distribution || [])
+            .filter((b) => barangayFilter.includes(b.barangay_id))
+            .map((b) => b.name);
+        if (barangayLabels.length > 0) {
+            parts.push(`Barangay: ${barangayLabels.join(', ')}`);
+        }
+
+        if (parts.length === 0) return 'All Seniors';
+        return parts.join(' • ');
+    }, [statusFilter, genderFilter, ageFilter, districtFilter, barangayFilter, minAgeFilter, maxAgeFilter, apiData]);
+
+    const districtOptions = useMemo(() => {
+        const unique = [...new Set((apiData?.distribution || []).map((b) => b.district).filter(Boolean))];
+        return unique.sort().map((d) => ({ label: d, value: d }));
+    }, [apiData]);
+
+    const barangayOptions = useMemo(() => {
+        return (apiData?.distribution || [])
+            .map((b) => ({ label: b.name, value: b.barangay_id }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [apiData]);
 
     // Map DB name → data lookup
     const dataLookup = useMemo(() => {
@@ -271,9 +442,28 @@ const Heatmap = () => {
     };
 
     const geoJsonKey = useMemo(
-        () => `${statusFilter}-${genderFilter}-${ageFilter}-${maxValue}`,
-        [statusFilter, genderFilter, ageFilter, maxValue]
+        () => `${statusFilter.join('|')}-${genderFilter.join('|')}-${ageFilter.join('|')}-${districtFilter.join('|')}-${barangayFilter.join('|')}-${maxValue}`,
+        [statusFilter, genderFilter, ageFilter, districtFilter, barangayFilter, maxValue]
     );
+
+    const hasActiveFilters =
+        statusFilter.length !== 1 || statusFilter[0] !== 'all' ||
+        genderFilter.length > 0 ||
+        ageFilter.length > 0 ||
+        districtFilter.length > 0 ||
+        barangayFilter.length > 0 ||
+        minAgeFilter !== null ||
+        maxAgeFilter !== null;
+
+    const clearAllFilters = () => {
+        setStatusFilter(['all']);
+        setGenderFilter([]);
+        setAgeFilter([]);
+        setDistrictFilter([]);
+        setBarangayFilter([]);
+        setMinAgeFilter(null);
+        setMaxAgeFilter(null);
+    };
 
     if (loading && !apiData) {
         return (
@@ -307,56 +497,169 @@ const Heatmap = () => {
             <Card size="small" style={{ marginBottom: 16 }} bodyStyle={{ padding: '12px 16px' }}>
                 <Row gutter={[12, 12]} align="middle">
                     <Col>
-                        <Text strong>Status:</Text>
+                        <Space size={4}>
+                            <Text strong>Status</Text>
+                            <ColumnFilterPopover
+                                title="Status"
+                                options={STATUS_OPTIONS}
+                                selected={statusFilter}
+                                onChange={setStatusFilter}
+                            />
+                        </Space>
                     </Col>
                     <Col>
-                        <Select
-                            value={statusFilter}
-                            onChange={setStatusFilter}
-                            style={{ width: 120 }}
-                            size="middle"
-                        >
-                            <Option value="all">All</Option>
-                            <Option value="active">Active</Option>
-                            <Option value="deceased">Deceased</Option>
-                        </Select>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {statusFilter.length === 0 ? 'All' : STATUS_OPTIONS.filter((o) => statusFilter.includes(o.value)).map((o) => o.label).join(', ')}
+                        </Text>
                     </Col>
                     <Col>
-                        <Text strong>Gender:</Text>
+                        <Space size={4}>
+                            <Text strong>Gender</Text>
+                            <ColumnFilterPopover
+                                title="Gender"
+                                options={(apiData?.genders || []).map((g) => ({ label: g.name, value: g.id }))}
+                                selected={genderFilter}
+                                onChange={setGenderFilter}
+                            />
+                        </Space>
                     </Col>
                     <Col>
-                        <Select
-                            placeholder="All Genders"
-                            value={genderFilter}
-                            onChange={setGenderFilter}
-                            allowClear
-                            style={{ width: 150 }}
-                            size="middle"
-                        >
-                            {(apiData?.genders || []).map(g => (
-                                <Option key={g.id} value={g.id}>{g.name}</Option>
-                            ))}
-                        </Select>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {genderFilter.length === 0 ? 'All' : (apiData?.genders || []).filter((g) => genderFilter.includes(g.id)).map((g) => g.name).join(', ')}
+                        </Text>
                     </Col>
                     <Col>
-                        <Text strong>Age Group:</Text>
+                        <Space size={4}>
+                            <Text strong>Age Group</Text>
+                            <ColumnFilterPopover
+                                title="Age Group"
+                                options={AGE_OPTIONS}
+                                selected={ageFilter}
+                                onChange={setAgeFilter}
+                            />
+                        </Space>
                     </Col>
                     <Col>
-                        <Select
-                            placeholder="All Ages"
-                            value={ageFilter}
-                            onChange={setAgeFilter}
-                            allowClear
-                            style={{ width: 200 }}
-                            size="middle"
-                        >
-                            {AGE_OPTIONS.map(o => (
-                                <Option key={o.value} value={o.value}>{o.label}</Option>
-                            ))}
-                        </Select>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {ageFilter.length === 0 ? 'All' : AGE_OPTIONS.filter((o) => ageFilter.includes(o.value)).map((o) => o.label).join(', ')}
+                        </Text>
                     </Col>
+                    <Col>
+                        <Text strong>Age Range</Text>
+                    </Col>
+                    <Col>
+                        <Space.Compact>
+                            <InputNumber
+                                placeholder="Min"
+                                min={0}
+                                max={150}
+                                value={minAgeFilter}
+                                onChange={setMinAgeFilter}
+                                style={{ width: 90 }}
+                            />
+                            <InputNumber
+                                placeholder="Max"
+                                min={0}
+                                max={150}
+                                value={maxAgeFilter}
+                                onChange={setMaxAgeFilter}
+                                style={{ width: 90 }}
+                            />
+                        </Space.Compact>
+                    </Col>
+                    <Col>
+                        <Space size={4}>
+                            <Text strong>District</Text>
+                            <ColumnFilterPopover
+                                title="District"
+                                options={districtOptions}
+                                selected={districtFilter}
+                                onChange={setDistrictFilter}
+                            />
+                        </Space>
+                    </Col>
+                    <Col>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {districtFilter.length === 0 ? 'All' : districtFilter.join(', ')}
+                        </Text>
+                    </Col>
+                    <Col>
+                        <Space size={4}>
+                            <Text strong>Barangay</Text>
+                            <ColumnFilterPopover
+                                title="Barangay"
+                                options={barangayOptions}
+                                selected={barangayFilter}
+                                onChange={setBarangayFilter}
+                            />
+                        </Space>
+                    </Col>
+                    <Col>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            {barangayFilter.length === 0
+                                ? 'All'
+                                : barangayOptions.filter((b) => barangayFilter.includes(b.value)).map((b) => b.label).join(', ')}
+                        </Text>
+                    </Col>
+                    {hasActiveFilters && (
+                        <Col>
+                            <Button
+                                type="link"
+                                size="small"
+                                danger
+                                icon={<CloseOutlined />}
+                                onClick={clearAllFilters}
+                                style={{ paddingLeft: 0 }}
+                            >
+                                Clear All
+                            </Button>
+                        </Col>
+                    )}
                     {loading && <Col><Spin size="small" /></Col>}
                 </Row>
+                {(statusFilter.length > 0 || genderFilter.length > 0 || ageFilter.length > 0 || districtFilter.length > 0 || barangayFilter.length > 0 || minAgeFilter !== null || maxAgeFilter !== null) && (
+                    <Row style={{ marginTop: 10 }}>
+                        <Col>
+                            <Space size={[4, 4]} wrap>
+                                {statusFilter.filter((s) => s !== 'all').map((s) => (
+                                    <Tag key={`status-${s}`} closable onClose={() => setStatusFilter((prev) => prev.filter((v) => v !== s))} color="blue">
+                                        Status: {STATUS_OPTIONS.find((o) => o.value === s)?.label || s}
+                                    </Tag>
+                                ))}
+                                {genderFilter.map((id) => (
+                                    <Tag key={`gender-${id}`} closable onClose={() => setGenderFilter((prev) => prev.filter((v) => v !== id))} color="magenta">
+                                        Gender: {(apiData?.genders || []).find((g) => g.id === id)?.name || id}
+                                    </Tag>
+                                ))}
+                                {ageFilter.map((key) => (
+                                    <Tag key={`age-${key}`} closable onClose={() => setAgeFilter((prev) => prev.filter((v) => v !== key))} color="cyan">
+                                        Age: {AGE_OPTIONS.find((o) => o.value === key)?.label || key}
+                                    </Tag>
+                                ))}
+                                {districtFilter.map((d) => (
+                                    <Tag key={`district-${d}`} closable onClose={() => setDistrictFilter((prev) => prev.filter((v) => v !== d))} color="orange">
+                                        District: {d}
+                                    </Tag>
+                                ))}
+                                {barangayFilter.map((id) => (
+                                    <Tag key={`barangay-${id}`} closable onClose={() => setBarangayFilter((prev) => prev.filter((v) => v !== id))} color="green">
+                                        Barangay: {barangayOptions.find((b) => b.value === id)?.label || id}
+                                    </Tag>
+                                ))}
+                                {minAgeFilter !== null && (
+                                    <Tag key="min-age" closable onClose={() => setMinAgeFilter(null)} color="geekblue">
+                                        Min Age: {minAgeFilter}
+                                    </Tag>
+                                )}
+                                {maxAgeFilter !== null && (
+                                    <Tag key="max-age" closable onClose={() => setMaxAgeFilter(null)} color="geekblue">
+                                        Max Age: {maxAgeFilter}
+                                    </Tag>
+                                )}
+                            </Space>
+                        </Col>
+                    </Row>
+                )}
             </Card>
 
             {/* Summary Stats */}
