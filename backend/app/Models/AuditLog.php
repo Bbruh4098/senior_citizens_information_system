@@ -120,6 +120,7 @@ class AuditLog extends Model
             'branch_delete'         => 'Field Office Deleted',
             'barangay_assign'       => 'Barangay Assigned',
             'barangay_bulk_assign'  => 'Barangays Bulk Assigned',
+            'prereg_verified'       => 'Pre-Reg Verified',
             'prereg_fo_verified'    => 'Pre-Reg FO Verified',
             'prereg_fo_rejected'    => 'Pre-Reg FO Rejected',
             'prereg_approved'       => 'Pre-Reg Approved',

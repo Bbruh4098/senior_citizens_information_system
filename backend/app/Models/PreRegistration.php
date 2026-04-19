@@ -28,13 +28,10 @@ class PreRegistration extends Model
     ];
 
     // Status constants
-    const STATUS_PENDING = 'pending';
-    const STATUS_FO_REVIEW = 'fo_review';
-    const STATUS_FO_VERIFIED = 'fo_verified';
-    const STATUS_MAIN_REVIEW = 'main_review';
+    const STATUS_FOR_VERIFICATION = 'for_verification';
+    const STATUS_FOR_APPROVAL = 'for_approval';
     const STATUS_APPROVED = 'approved';
     const STATUS_REJECTED = 'rejected';
-    const STATUS_CONVERTED = 'converted';
 
     /**
      * Generate a unique reference number
@@ -84,14 +81,11 @@ class PreRegistration extends Model
     public function getStatusLabelAttribute(): string
     {
         return match($this->status) {
-            self::STATUS_PENDING => 'Pending Review',
-            self::STATUS_FO_REVIEW => 'Under Branch Review',
-            self::STATUS_FO_VERIFIED => 'Verified by Branch',
-            self::STATUS_MAIN_REVIEW => 'Under Main Review',
+            self::STATUS_FOR_VERIFICATION => 'For Verification',
+            self::STATUS_FOR_APPROVAL => 'For Approval',
             self::STATUS_APPROVED => 'Approved',
             self::STATUS_REJECTED => 'Rejected',
-            self::STATUS_CONVERTED => 'Converted to Application',
-            default => ucfirst($this->status),
+            default => ucfirst(str_replace('_', ' ', $this->status)),
         };
     }
 }

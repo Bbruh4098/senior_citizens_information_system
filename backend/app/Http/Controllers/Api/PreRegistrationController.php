@@ -70,13 +70,10 @@ class PreRegistrationController extends Controller
 
         $stats = [
             'total' => (clone $query)->count(),
-            'pending' => (clone $query)->where('status', 'pending')->count(),
-            'fo_review' => (clone $query)->where('status', 'fo_review')->count(),
-            'fo_verified' => (clone $query)->where('status', 'fo_verified')->count(),
-            'main_review' => (clone $query)->where('status', 'main_review')->count(),
+            'for_verification' => (clone $query)->where('status', 'for_verification')->count(),
+            'for_approval' => (clone $query)->where('status', 'for_approval')->count(),
             'approved' => (clone $query)->where('status', 'approved')->count(),
             'rejected' => (clone $query)->where('status', 'rejected')->count(),
-            'converted' => (clone $query)->where('status', 'converted')->count(),
             'today' => (clone $query)->whereDate('created_at', today())->count(),
             'this_week' => (clone $query)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
         ];
@@ -108,21 +105,21 @@ class PreRegistrationController extends Controller
 
         $preReg = PreRegistration::findOrFail($id);
 
-        if (!in_array($preReg->status, ['pending', 'fo_review'])) {
+        if ($preReg->status !== PreRegistration::STATUS_FOR_VERIFICATION) {
             return response()->json(['message' => 'Cannot review this application at current status'], 422);
         }
 
         $user = $request->user();
 
-        // 'verify' and 'transmit' do the same thing - forward to Main
+        // 'verify' and 'transmit' forward to For Approval
         if (in_array($request->action, ['verify', 'transmit'])) {
             $preReg->update([
-                'status' => PreRegistration::STATUS_FO_VERIFIED,
+                'status' => PreRegistration::STATUS_FOR_APPROVAL,
                 'fo_reviewed_by' => $user->id,
                 'fo_reviewed_at' => now(),
                 'notes' => $request->notes,
             ]);
-            $message = 'Application transmitted to Main Admin';
+            $message = 'Application forwarded for approval';
         } else {
             $preReg->update([
                 'status' => PreRegistration::STATUS_REJECTED,
@@ -135,10 +132,10 @@ class PreRegistrationController extends Controller
 
         $applicantData = $preReg->applicant_data;
         $applicantName = ($applicantData['first_name'] ?? '') . ' ' . ($applicantData['last_name'] ?? '');
-        $actionKey = in_array($request->action, ['verify', 'transmit']) ? 'prereg_fo_verified' : 'prereg_fo_rejected';
+        $actionKey = in_array($request->action, ['verify', 'transmit']) ? 'prereg_verified' : 'prereg_rejected';
         $this->logAudit(
             $actionKey, 'pre_registrations', $preReg->id,
-            ($actionKey === 'prereg_fo_verified' ? 'FO verified' : 'FO rejected') . ": {$applicantName} ({$preReg->reference_number})",
+            ($actionKey === 'prereg_verified' ? 'Application verified' : 'Application rejected') . ": {$applicantName} ({$preReg->reference_number})",
             null, ['status' => $preReg->status],
             trim($applicantName)
         );
@@ -162,7 +159,7 @@ class PreRegistrationController extends Controller
 
         $preReg = PreRegistration::findOrFail($id);
 
-        if (!in_array($preReg->status, ['fo_verified', 'main_review'])) {
+        if ($preReg->status !== PreRegistration::STATUS_FOR_APPROVAL) {
             return response()->json(['message' => 'Cannot review this application at current status'], 422);
         }
 
@@ -175,7 +172,7 @@ class PreRegistrationController extends Controller
                 'main_reviewed_at' => now(),
                 'notes' => $request->notes,
             ]);
-            $message = 'Application approved. Ready for conversion.';
+            $message = 'Application approved.';
         } else {
             $preReg->update([
                 'status' => PreRegistration::STATUS_REJECTED,
@@ -210,9 +207,9 @@ class PreRegistrationController extends Controller
     {
         $preReg = PreRegistration::with('barangay')->findOrFail($id);
 
-        // Allow conversion for any application that is not already converted or rejected
-        if (in_array($preReg->status, [PreRegistration::STATUS_CONVERTED, PreRegistration::STATUS_REJECTED])) {
-            return response()->json(['message' => 'This application has already been ' . $preReg->status], 422);
+        // Allow conversion for any application that is not already rejected
+        if ($preReg->status === PreRegistration::STATUS_REJECTED) {
+            return response()->json(['message' => 'This application has been rejected'], 422);
         }
 
         // Transform applicant_data from online form format to registration form format
@@ -298,12 +295,6 @@ class PreRegistrationController extends Controller
             }
         }
 
-        // Mark as being converted (optional status update)
-        $preReg->update([
-            'status' => PreRegistration::STATUS_MAIN_REVIEW,
-            'main_reviewed_by' => $request->user()->id,
-            'main_reviewed_at' => now(),
-        ]);
 
         return response()->json([
             'message' => 'Pre-registration data retrieved for conversion',
@@ -322,22 +313,15 @@ class PreRegistrationController extends Controller
     public function markUnderReview(Request $request, int $id): JsonResponse
     {
         $preReg = PreRegistration::findOrFail($id);
-        $user = $request->user();
-
-        if ($preReg->status === 'pending' && in_array($user->role_id, [2, 3])) {
-            $preReg->update(['status' => PreRegistration::STATUS_FO_REVIEW]);
-        } elseif ($preReg->status === 'fo_verified' && $user->role_id === 1) {
-            $preReg->update(['status' => PreRegistration::STATUS_MAIN_REVIEW]);
-        }
 
         return response()->json([
-            'message' => 'Status updated',
+            'message' => 'Status unchanged',
             'data' => $preReg->fresh(),
         ]);
     }
 
     /**
-     * Complete the conversion - mark pre-registration as converted and link to application.
+     * Complete the conversion - link pre-registration to application and sync status.
      * Called after registration form is successfully saved.
      */
     public function completeConversion(Request $request, int $id): JsonResponse
@@ -348,18 +332,30 @@ class PreRegistrationController extends Controller
 
         $preReg = PreRegistration::findOrFail($id);
 
-        if ($preReg->status === PreRegistration::STATUS_CONVERTED) {
-            return response()->json(['message' => 'Already converted'], 422);
-        }
+        // Look up the application's current status and map it
+        $application = \App\Models\Application::findOrFail($request->application_id);
+        $mappedStatus = self::mapApplicationStatusToPreReg($application->status);
 
         $preReg->update([
-            'status' => PreRegistration::STATUS_CONVERTED,
+            'status' => $mappedStatus,
             'application_id' => $request->application_id,
         ]);
 
         return response()->json([
-            'message' => 'Pre-registration marked as converted',
+            'message' => 'Pre-registration linked to application',
             'data' => $preReg->fresh(),
         ]);
+    }
+
+    // Map Application status to PreRegistration status.
+    public static function mapApplicationStatusToPreReg(string $appStatus): string
+    {
+        return match($appStatus) {
+            'Draft', 'Pending' => PreRegistration::STATUS_FOR_VERIFICATION,
+            'For Verification' => PreRegistration::STATUS_FOR_APPROVAL,
+            'Approved', 'Printed', 'Claimed' => PreRegistration::STATUS_APPROVED,
+            'Rejected' => PreRegistration::STATUS_REJECTED,
+            default => PreRegistration::STATUS_FOR_VERIFICATION,
+        };
     }
 }

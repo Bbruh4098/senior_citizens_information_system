@@ -52,7 +52,7 @@ class DashboardController extends Controller
 
         // Pre-registrations that are pending (online applications awaiting processing)
         $pendingPreRegs = \App\Models\PreRegistration::query()
-            ->whereNotIn('status', ['converted', 'rejected'])
+            ->whereNotIn('status', ['approved', 'rejected'])
             ->when(!$user->isMainAdmin(), function ($q) use ($barangayIds) {
                 $q->whereIn('barangay_id', $barangayIds);
             })

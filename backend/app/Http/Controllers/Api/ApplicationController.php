@@ -368,6 +368,13 @@ class ApplicationController extends Controller
 
             $application->update($updateData);
 
+            // Sync linked pre-registration status (if application came from a pre-registration)
+            $linkedPreReg = \App\Models\PreRegistration::where('application_id', $application->id)->first();
+            if ($linkedPreReg) {
+                $mappedStatus = \App\Http\Controllers\Api\PreRegistrationController::mapApplicationStatusToPreReg($request->status);
+                $linkedPreReg->update(['status' => $mappedStatus]);
+            }
+
             DB::commit();
 
             return response()->json([

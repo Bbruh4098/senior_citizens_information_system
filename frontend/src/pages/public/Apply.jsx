@@ -377,9 +377,11 @@ const Apply = () => {
                                                     padding: '4px 12px',
                                                     borderRadius: 20,
                                                     background: statusData.status === 'approved' ? '#d1fae5' :
-                                                        statusData.status === 'rejected' ? '#fee2e2' : '#dbeafe',
+                                                        statusData.status === 'rejected' ? '#fee2e2' :
+                                                        statusData.status === 'for_approval' ? '#dbeafe' : '#f3f4f6',
                                                     color: statusData.status === 'approved' ? '#059669' :
-                                                        statusData.status === 'rejected' ? '#dc2626' : '#2563eb',
+                                                        statusData.status === 'rejected' ? '#dc2626' :
+                                                        statusData.status === 'for_approval' ? '#2563eb' : '#6b7280',
                                                     fontWeight: 600,
                                                 }}>
                                                     {statusData.status_label}

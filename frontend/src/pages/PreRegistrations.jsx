@@ -149,13 +149,10 @@ const PreRegistrations = () => {
 
     const getStatusTag = (status) => {
         const config = {
-            pending: { color: 'default', label: 'Pending', icon: <ClockCircleOutlined /> },
-            fo_review: { color: 'processing', label: 'Under FO Review', icon: <SyncOutlined spin /> },
-            fo_verified: { color: 'blue', label: 'FO Verified', icon: <CheckCircleOutlined /> },
-            main_review: { color: 'orange', label: 'Under Main Review', icon: <SyncOutlined spin /> },
+            for_verification: { color: 'default', label: 'For Verification', icon: <ClockCircleOutlined /> },
+            for_approval: { color: 'processing', label: 'For Approval', icon: <SyncOutlined spin /> },
             approved: { color: 'green', label: 'Approved', icon: <CheckCircleOutlined /> },
             rejected: { color: 'error', label: 'Rejected', icon: <CloseCircleOutlined /> },
-            converted: { color: 'purple', label: 'Converted', icon: <FileTextOutlined /> },
         };
         const c = config[status] || { color: 'default', label: status };
         return <Tag color={c.color} icon={c.icon}>{c.label}</Tag>;
@@ -211,10 +208,10 @@ const PreRegistrations = () => {
                     <Button icon={<EyeOutlined />} size="small" onClick={() => openDetailModal(record)}>
                         View
                     </Button>
-                    {/* Both FO Admin and Main Admin can convert pending applications to registration form */}
+                    {/* Both FO Admin and Main Admin can verify pre-registrations into full applications */}
                     {(isFOAdmin || isBarangayAdmin || isMainAdmin) &&
-                        ['pending', 'fo_review', 'fo_verified', 'main_review', 'approved'].includes(record.status) &&
-                        record.status !== 'converted' && record.status !== 'rejected' && (
+                        ['for_verification', 'for_approval'].includes(record.status) &&
+                        record.status !== 'rejected' && (
                             <Button
                                 type="primary"
                                 icon={<FormOutlined />}
@@ -222,7 +219,7 @@ const PreRegistrations = () => {
                                 size="small"
                                 onClick={() => handleConvert(record)}
                             >
-                                Convert to Application
+                                Verify
                             </Button>
                         )}
                 </Space>
@@ -242,37 +239,27 @@ const PreRegistrations = () => {
 
             {/* Statistics */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
-                <Col xs={12} sm={6} lg={3}>
+                <Col xs={12} sm={6} lg={4}>
                     <Card bodyStyle={{ padding: 16 }}>
                         <Statistic title="Total" value={stats.total || 0} />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6} lg={3}>
+                <Col xs={12} sm={6} lg={4}>
                     <Card bodyStyle={{ padding: 16 }}>
-                        <Statistic title="Pending" value={stats.pending || 0} valueStyle={{ color: '#8c8c8c' }} />
+                        <Statistic title="For Verification" value={stats.for_verification || 0} valueStyle={{ color: '#8c8c8c' }} />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6} lg={3}>
+                <Col xs={12} sm={6} lg={4}>
                     <Card bodyStyle={{ padding: 16 }}>
-                        <Statistic title="FO Verified" value={stats.fo_verified || 0} valueStyle={{ color: '#1890ff' }} />
+                        <Statistic title="For Approval" value={stats.for_approval || 0} valueStyle={{ color: '#1890ff' }} />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6} lg={3}>
+                <Col xs={12} sm={6} lg={4}>
                     <Card bodyStyle={{ padding: 16 }}>
                         <Statistic title="Approved" value={stats.approved || 0} valueStyle={{ color: '#52c41a' }} />
                     </Card>
                 </Col>
-                <Col xs={12} sm={6} lg={3}>
-                    <Card bodyStyle={{ padding: 16 }}>
-                        <Statistic title="Rejected" value={stats.rejected || 0} valueStyle={{ color: '#ff4d4f' }} />
-                    </Card>
-                </Col>
-                <Col xs={12} sm={6} lg={3}>
-                    <Card bodyStyle={{ padding: 16 }}>
-                        <Statistic title="Converted" value={stats.converted || 0} valueStyle={{ color: '#722ed1' }} />
-                    </Card>
-                </Col>
-                <Col xs={12} sm={6} lg={3}>
+                <Col xs={12} sm={6} lg={4}>
                     <Card bodyStyle={{ padding: 16 }}>
                         <Statistic title="Today" value={stats.today || 0} valueStyle={{ color: '#faad14' }} />
                     </Card>
@@ -297,13 +284,10 @@ const PreRegistrations = () => {
                             allowClear
                             onChange={(v) => handleFilterChange('status', v)}
                         >
-                            <Option value="pending">Pending</Option>
-                            <Option value="fo_review">Under FO Review</Option>
-                            <Option value="fo_verified">FO Verified</Option>
-                            <Option value="main_review">Under Main Review</Option>
+                            <Option value="for_verification">For Verification</Option>
+                            <Option value="for_approval">For Approval</Option>
                             <Option value="approved">Approved</Option>
                             <Option value="rejected">Rejected</Option>
-                            <Option value="converted">Converted</Option>
                         </Select>
                     </Col>
                     <Col xs={12} sm={4}>

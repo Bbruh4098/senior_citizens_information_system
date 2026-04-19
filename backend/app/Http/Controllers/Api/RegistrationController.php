@@ -509,6 +509,13 @@ class RegistrationController extends Controller
                 'submission_date' => $isDraft ? null : now(),
             ]);
 
+            // Sync linked pre-registration status (if this came from a pre-registration)
+            $linkedPreReg = \App\Models\PreRegistration::where('application_id', $application->id)->first();
+            if ($linkedPreReg) {
+                $mappedStatus = \App\Http\Controllers\Api\PreRegistrationController::mapApplicationStatusToPreReg($status);
+                $linkedPreReg->update(['status' => $mappedStatus]);
+            }
+
             $successMessage = $isDraft 
                 ? 'Draft updated successfully' 
                 : 'Application submitted for verification';

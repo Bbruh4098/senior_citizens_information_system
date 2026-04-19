@@ -202,7 +202,6 @@ class PublicController extends Controller
 
         // Check for duplicate pre-registration (pending/in-review applications)
         $existingPreReg = PreRegistration::where('status', '!=', 'rejected')
-            ->where('status', '!=', 'converted')
             ->whereRaw('LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(applicant_data, \'$.first_name\')))) = ?', [$firstName])
             ->whereRaw('LOWER(TRIM(JSON_UNQUOTE(JSON_EXTRACT(applicant_data, \'$.last_name\')))) = ?', [$lastName])
             ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(applicant_data, \'$.birthdate\')) = ?', [$birthdate])
@@ -267,7 +266,7 @@ class PublicController extends Controller
                     'contact' => $request->assistant_contact,
                 ] : null,
             ],
-            'status' => PreRegistration::STATUS_PENDING,
+            'status' => PreRegistration::STATUS_FOR_VERIFICATION,
         ]);
 
         // Send reference number via SMS
@@ -310,7 +309,7 @@ class PublicController extends Controller
                 'reference_number' => $preRegistration->reference_number,
                 'status' => $preRegistration->status,
                 'status_label' => $preRegistration->status_label,
-                'barangay' => $preRegistration->barangay->name ?? null,
+                'barangay' => $preRegistration->barangay?->name ?? null,
                 'applicant_name' => sprintf(
                     '%s %s',
                     $preRegistration->applicant_data['first_name'] ?? '',
