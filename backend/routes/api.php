@@ -26,10 +26,6 @@ use App\Http\Controllers\Api\SmsController;
 |
 */
 
-// ===========================
-// PUBLIC ROUTES (No Auth Required)
-// ===========================
-// Note: CORS is handled by App\Http\Middleware\HandleCors
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -46,8 +42,11 @@ Route::prefix('public')->group(function () {
 
 // Senior Portal Authentication (public - no auth required)
 Route::prefix('senior')->group(function () {
-    Route::post('/request-otp', [SeniorAuthController::class, 'requestOtp']);
-    Route::post('/verify-otp', [SeniorAuthController::class, 'verifyOtp']);
+    // Rate-limited: 5 attempts per minute per IP
+    Route::middleware('throttle:5,1')->group(function () {
+        Route::post('/request-otp', [SeniorAuthController::class, 'requestOtp']);
+        Route::post('/verify-otp', [SeniorAuthController::class, 'verifyOtp']);
+    });
     Route::post('/login', [SeniorAuthController::class, 'loginWithPin']);
     Route::get('/profile', [SeniorAuthController::class, 'profile']);
     Route::get('/benefits', [SeniorAuthController::class, 'benefits']);

@@ -204,7 +204,7 @@ class SmsService
     {
         $template = SmsSetting::getValue(
             'otp_message_template',
-            'Your OSCA Senior Portal OTP is: {otp}. Valid for 10 minutes. Do not share this code.'
+            'Your OSCA Senior Portal OTP is: {otp}. Valid for 5 minutes. Do not share this code.'
         );
         $message = str_replace('{otp}', $otp, $template);
 

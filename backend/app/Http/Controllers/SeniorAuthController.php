@@ -2,27 +2,49 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\OtpMail;
 use App\Models\SeniorAccount;
 use App\Models\SeniorCitizen;
 use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SeniorAuthController extends Controller
 {
     /**
-     * Register/Request OTP for senior portal
+     * Request OTP for sign up or forgot PIN
      */
     public function requestOtp(Request $request): JsonResponse
     {
         $request->validate([
             'osca_id' => 'required|string',
-            'phone_number' => 'required|string|min:10|max:15',
+            'otp_channel' => 'required|in:phone,email',
+            'turnstile_token' => 'nullable|string',
         ]);
 
-        // Find senior by OSCA ID
-        $senior = SeniorCitizen::where('osca_id', $request->osca_id)->first();
+        // Verify Turnstile CAPTCHA (skip if no secret configured or if resending)
+        if (!$request->boolean('skip_turnstile') && config('services.turnstile.secret')) {
+            $token = $request->input('turnstile_token');
+            if (!$token) {
+                return response()->json([
+                    'message' => 'Please complete the verification check.',
+                ], 422);
+            }
+
+            $verified = $this->verifyTurnstile($token, $request->ip());
+            if (!$verified) {
+                return response()->json([
+                    'message' => 'Verification failed. Please try again.',
+                ], 422);
+            }
+        }
+
+        // Find senior by OSCA ID (with contact for email/phone lookup)
+        $senior = SeniorCitizen::with('contact')->where('osca_id', $request->osca_id)->first();
 
         if (!$senior) {
             return response()->json([
@@ -30,10 +52,30 @@ class SeniorAuthController extends Controller
             ], 404);
         }
 
-        // Get or create account
+        $otpChannel = $request->input('otp_channel', 'phone');
+
+        // Validate chosen channel has contact info on file
+        if ($otpChannel === 'email') {
+            $seniorEmail = $senior->contact?->email;
+            if (!$seniorEmail) {
+                return response()->json([
+                    'message' => 'No email address found on your file. Please use phone number instead, or contact OSCA to update your records.',
+                ], 422);
+            }
+        } else {
+            $seniorPhone = $senior->contact?->mobile_number;
+            if (!$seniorPhone) {
+                return response()->json([
+                    'message' => 'No phone number found on your file. Please use email instead, or contact OSCA to update your records.',
+                ], 422);
+            }
+        }
+
+        // Get or create account (use contact's phone number)
+        $phoneNumber = $senior->contact?->mobile_number ?? '0000000000';
         $account = SeniorAccount::firstOrCreate(
             ['senior_id' => $senior->id],
-            ['phone_number' => $request->phone_number]
+            ['phone_number' => $phoneNumber]
         );
 
         // Check if locked
@@ -43,14 +85,10 @@ class SeniorAuthController extends Controller
             ], 423);
         }
 
-        // Update phone if different
-        if ($account->phone_number !== $request->phone_number) {
-            $account->update(['phone_number' => $request->phone_number]);
-        }
-
-        // Check SMS rate limits
+        // Check rate limits (using phone number for tracking)
         $smsService = new SmsService();
-        $rateCheck = $smsService->checkOtpRateLimit($request->phone_number);
+        $trackingNumber = $account->phone_number;
+        $rateCheck = $smsService->checkOtpRateLimit($trackingNumber);
         if (!$rateCheck['allowed']) {
             return response()->json([
                 'message' => $rateCheck['message'],
@@ -61,32 +99,95 @@ class SeniorAuthController extends Controller
         // Generate OTP
         $otp = $account->generateOtp();
 
-        // Send OTP via SMS
-        $smsResult = $smsService->sendOtp($request->phone_number, $otp);
-
-        // In demo mode or if SMS fails, still allow the flow but return the OTP
-        $isDemoMode = !$smsResult['success'];
-
+        // Send OTP via the chosen channel
         $responseData = [
-            'message' => $isDemoMode
-                ? 'SMS not available. Use the OTP shown on screen.'
-                : 'OTP sent to your registered phone number',
             'senior_id' => $senior->id,
-            'expires_in' => 600,
-            'sms_sent' => !$isDemoMode,
+            'expires_in' => 300,
         ];
 
-        // Include OTP in response when in demo mode
-        if ($isDemoMode) {
-            $responseData['demo_otp'] = $otp;
+        if ($otpChannel === 'email') {
+            $seniorEmail = $senior->contact->email;
+            try {
+                Mail::to($seniorEmail)->send(new OtpMail(
+                    $otp,
+                    $senior->full_name,
+                    5
+                ));
+                $maskedEmail = $this->maskEmail($seniorEmail);
+                $responseData['message'] = "OTP sent to your email at {$maskedEmail}";
+                Log::info('OTP email sent', ['senior_id' => $senior->id, 'email' => $maskedEmail]);
+            } catch (\Exception $e) {
+                Log::error('OTP email failed', [
+                    'senior_id' => $senior->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json([
+                    'message' => 'Failed to send OTP email. Please try using phone number instead.',
+                ], 500);
+            }
+        } else {
+            // Send via SMS
+            $smsResult = $smsService->sendOtp($account->phone_number, $otp);
+            if ($smsResult['success']) {
+                $maskedPhone = $this->maskPhone($account->phone_number);
+                $responseData['message'] = "OTP sent to {$maskedPhone}";
+            } else {
+                return response()->json([
+                    'message' => 'Failed to send OTP via SMS. Please try again later or contact OSCA.',
+                ], 500);
+            }
         }
 
         return response()->json($responseData);
     }
 
-    /**
-     * Verify OTP and create account (set PIN)
-     */
+    // Verify Cloudflare Turnstile token
+    private function verifyTurnstile(string $token, ?string $ip): bool
+    {
+        try {
+            $response = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => config('services.turnstile.secret'),
+                'response' => $token,
+                'remoteip' => $ip,
+            ]);
+
+            $data = $response->json();
+            return $data['success'] ?? false;
+        } catch (\Exception $e) {
+            Log::error('Turnstile verification failed', ['error' => $e->getMessage()]);
+            // Fail open — allow request if Turnstile is down
+            return true;
+        }
+    }
+
+    // Mask an email address for display (e.g., a***l@gmail.com)
+    private function maskEmail(string $email): string
+    {
+        $parts = explode('@', $email);
+        if (count($parts) !== 2) {
+            return '***@***';
+        }
+
+        $local = $parts[0];
+        $domain = $parts[1];
+
+        if (strlen($local) <= 2) {
+            $masked = $local[0] . '***';
+        } else {
+            $masked = $local[0] . str_repeat('*', strlen($local) - 2) . substr($local, -1);
+        }
+
+        return $masked . '@' . $domain;
+    }
+
+    // Mask a phone number for display (e.g., 09***5678)
+    private function maskPhone(string $phone): string
+    {
+        if (strlen($phone) <= 4) return '****';
+        return substr($phone, 0, 2) . str_repeat('*', strlen($phone) - 4) . substr($phone, -4);
+    }
+
+    // Verify OTP and create account (set PIN)
     public function verifyOtp(Request $request): JsonResponse
     {
         $request->validate([

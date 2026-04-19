@@ -89,7 +89,7 @@ class SeniorAccount extends Model
         $otp = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
         $this->update([
             'otp_code' => $otp,
-            'otp_expires_at' => now()->addMinutes(10),
+            'otp_expires_at' => now()->addMinutes(5),
         ]);
         return $otp;
     }
