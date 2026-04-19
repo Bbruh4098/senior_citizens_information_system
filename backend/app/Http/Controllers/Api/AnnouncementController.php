@@ -13,8 +13,7 @@ class AnnouncementController extends Controller
 {
     private function publicStorageUrl(Request $request, string $path): string
     {
-        $baseUrl = rtrim($request->getSchemeAndHttpHost(), '/');
-        return $baseUrl . '/storage/' . ltrim($path, '/');
+        return Storage::disk(config('filesystems.upload_disk'))->url($path);
     }
 
     public function index(Request $request)
@@ -124,7 +123,7 @@ class AnnouncementController extends Controller
         $request->validate(['file' => 'required|file|max:20480']);
         $file = $request->file('file');
         
-        $path = $file->store('announcements/' . $announcement->id, 'public');
+        $path = $file->store('announcements/' . $announcement->id, config('filesystems.upload_disk'));
         
         $media = AnnouncementMedia::create([
             'announcement_id' => $announcement->id,
@@ -148,10 +147,10 @@ class AnnouncementController extends Controller
         // 2. Prevent storage leaks by deleting associated files first
         if ($announcement->media) {
             foreach ($announcement->media as $media) {
-                Storage::disk('public')->delete($media->file_path);
+                Storage::disk(config('filesystems.upload_disk'))->delete($media->file_path);
             }
             // Optionally, delete the empty directory
-            Storage::disk('public')->deleteDirectory('announcements/' . $announcement->id);
+            Storage::disk(config('filesystems.upload_disk'))->deleteDirectory('announcements/' . $announcement->id);
         }
 
         $announcement->delete();
@@ -170,7 +169,7 @@ class AnnouncementController extends Controller
     public function destroyMedia($id)
     {
         $media = AnnouncementMedia::findOrFail($id);
-        Storage::disk('public')->delete($media->file_path);
+        Storage::disk(config('filesystems.upload_disk'))->delete($media->file_path);
         $media->delete();
         return response()->json(['success' => true]);
     }

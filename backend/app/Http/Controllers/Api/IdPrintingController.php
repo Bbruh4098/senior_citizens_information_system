@@ -8,6 +8,7 @@ use App\Models\SeniorCitizen;
 use App\Models\SeniorId;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class IdPrintingController extends Controller
 {
@@ -208,7 +209,7 @@ class IdPrintingController extends Controller
             ->where('document_type_id', 4) // Photo type
             ->first();
 
-        $photoUrl = $photoDoc ? asset('storage/' . $photoDoc->file_path) : null;
+        $photoUrl = $photoDoc ? Storage::disk(config('filesystems.upload_disk'))->url($photoDoc->file_path) : null;
 
         // QR Code data (will be generated on frontend using this data)
         $qrData = [
@@ -304,7 +305,7 @@ class IdPrintingController extends Controller
                 'birthdate_raw' => $senior->birthdate?->format('Y-m-d'),
                 'gender' => $senior->gender->name ?? null,
                 'address' => implode(', ', $addressParts),
-                'photo_url' => $photoDoc ? asset('storage/' . $photoDoc->file_path) : null,
+                'photo_url' => $photoDoc ? Storage::disk(config('filesystems.upload_disk'))->url($photoDoc->file_path) : null,
                 'issue_date' => now()->format('F d, Y'),
                 'qr_data' => json_encode([
                     'osca_id' => $senior->osca_id,

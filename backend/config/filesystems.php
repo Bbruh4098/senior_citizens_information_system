@@ -60,7 +60,32 @@ return [
             'report' => false,
         ],
 
+        'spaces' => [
+            'driver' => 's3',
+            'key' => env('DO_SPACES_KEY'),
+            'secret' => env('DO_SPACES_SECRET'),
+            'region' => env('DO_SPACES_REGION', 'sgp1'),
+            'bucket' => env('DO_SPACES_BUCKET', 'scis-uploads'),
+            'endpoint' => env('DO_SPACES_ENDPOINT', 'https://sgp1.digitaloceanspaces.com'),
+            'url' => env('DO_SPACES_URL', 'https://scis-uploads.sgp1.digitaloceanspaces.com'),
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Upload Disk
+    |--------------------------------------------------------------------------
+    |
+    | The disk used for file uploads (documents, photos, etc).
+    | Use 'public' for local dev, 'spaces' for production (DigitalOcean Spaces).
+    |
+    */
+
+    'upload_disk' => env('UPLOAD_DISK', 'public'),
 
     /*
     |--------------------------------------------------------------------------

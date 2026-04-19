@@ -330,10 +330,11 @@ class ReplaceLostController extends Controller
             $extension = $file->getClientOriginalExtension();
             $filename = time() . '_' . uniqid() . '.' . $extension;
             
+            $disk = config('filesystems.upload_disk');
             $path = $file->storeAs(
                 'uploads/applications/' . $application->id,
                 $filename,
-                'public'
+                $disk
             );
 
             // Remove existing document of same type
@@ -360,7 +361,7 @@ class ReplaceLostController extends Controller
                     'document_type_id' => $request->document_type_id,
                     'file_path' => $path,
                     'original_filename' => $file->getClientOriginalName(),
-                    'url' => asset('storage/' . $path),
+                    'url' => Storage::disk($disk)->url($path),
                 ],
             ]);
 
@@ -384,7 +385,7 @@ class ReplaceLostController extends Controller
                 return response()->json(['success' => false, 'message' => 'Document not found'], 404);
             }
 
-            Storage::disk('public')->delete($document->file_path);
+            Storage::disk(config('filesystems.upload_disk'))->delete($document->file_path);
             DB::table('application_documents')->where('id', $documentId)->delete();
 
             return response()->json([
@@ -409,7 +410,7 @@ class ReplaceLostController extends Controller
             ->where('application_id', $applicationId)
             ->get()
             ->map(function ($doc) {
-                $doc->url = asset('storage/' . $doc->file_path);
+                $doc->url = Storage::disk(config('filesystems.upload_disk'))->url($doc->file_path);
                 return $doc;
             });
 
